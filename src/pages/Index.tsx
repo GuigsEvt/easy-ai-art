@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 type Mode = "text-to-image" | "text-to-video" | "image-to-image";
 
 const Index = () => {
+  // State management
   const [selectedMode, setSelectedMode] = useState<Mode>("text-to-image");
   const [prompt, setPrompt] = useState("");
   const [seed, setSeed] = useState("");
