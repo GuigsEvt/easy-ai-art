@@ -7,7 +7,6 @@ import { Sparkles } from "lucide-react";
 import ModeSelector from "@/components/ModeSelector";
 import ParameterControls from "@/components/ParameterControls";
 import ImageDisplay from "@/components/ImageDisplay";
-import { supabase } from "@/integrations/supabase/client";
 
 type Mode = "text-to-image" | "text-to-video" | "image-to-image";
 
@@ -31,22 +30,30 @@ const Index = () => {
     setGeneratedImage(null);
 
     try {
-      const { data, error } = await supabase.functions.invoke("generate-image", {
-        body: {
-          prompt: prompt.trim(),
-          seed: seed || undefined,
-          steps,
-          sampler,
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
+        body: JSON.stringify({
+          prompt: prompt.trim(),
+          seed: seed ? parseInt(seed) : undefined,
+          num_inference_steps: steps,
+          sampler,
+        }),
       });
 
-      if (error) throw error;
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
-      if (data.imageUrl) {
-        setGeneratedImage(data.imageUrl);
+      const data = await response.json();
+
+      if (data.success && data.image_url) {
+        setGeneratedImage(data.image_url);
         toast.success("Image generated successfully!");
       } else {
-        throw new Error("No image URL returned");
+        throw new Error(data.message || "No image URL returned");
       }
     } catch (error) {
       console.error("Generation error:", error);

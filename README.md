@@ -1,53 +1,96 @@
-# Welcome to your Lovable project
+# Easy AI Art
 
-## Project info
+A modern AI-powered image generation application with a React frontend and FastAPI backend.
 
-**URL**: https://lovable.dev/projects/a45a1a4c-5327-47ce-86ca-82c68bfb06e9
+## Architecture
 
-## How can I edit this code?
-
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/a45a1a4c-5327-47ce-86ca-82c68bfb06e9) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```
+easy-ai-art/
+├── frontend/               # React/Vite frontend
+├── backend/                # FastAPI backend for AI models  
+├── .env                    # Environment configuration
+├── docker-compose.yml      # Development setup
+└── README.md
 ```
 
-**Edit a file directly in GitHub**
+## Quick Start
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Option 1: Using Docker Compose (Recommended)
 
-**Use GitHub Codespaces**
+```bash
+# Clone the repository
+git clone <YOUR_GIT_URL>
+cd easy-ai-art
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
+# Start both frontend and backend
+docker-compose up -d
+
+# Frontend: http://localhost:8080
+# Backend API: http://localhost:8000
+# API Docs: http://localhost:8000/docs
+```
+
+### Option 2: Manual Setup
+
+**Frontend Setup:**
+```bash
+cd frontend
+npm install
+npm run dev
+# Frontend runs on http://localhost:8080
+```
+
+**Backend Setup:**
+```bash
+cd backend
+pip install -r requirements.txt
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+# Backend runs on http://localhost:8000
+```
+
+## Development
+
+**Frontend (React + Vite):**
+- Located in `frontend/`
+- Built with React, TypeScript, Tailwind CSS
+- UI components from shadcn/ui
+- Proxy configured to backend API
+
+**Backend (FastAPI):**
+- Located in `backend/`
+- RESTful API for AI image generation
+- Pydantic models for request/response validation
+- Structured with routes, core utilities, and models
+
+## API Endpoints
+
+- `GET /` - Health check
+- `POST /api/generate` - Generate AI image
+- `GET /api/models` - List available models
+- `GET /images/{filename}` - Serve generated images
+
+## Environment Variables
+
+Copy `.env.example` to `.env` and configure:
+
+**Frontend:**
+- `VITE_API_BASE_URL` - Backend API URL
+- `VITE_SUPABASE_*` - Supabase configuration
+
+**Backend:**
+- `API_HOST`, `API_PORT` - Server configuration
+- `DEFAULT_MODEL` - AI model to use
+- `MODELS_CACHE_DIR` - Model storage directory
+
+## Adding AI Models
+
+1. Uncomment AI dependencies in `backend/requirements.txt`
+2. Install: `pip install torch diffusers transformers`
+3. Update `backend/app/core/pipeline.py` with actual model implementation
+
+## Project Info
+
+**URL**: https://lovable.dev/projects/a45a1a4c-5327-47ce-86ca-82c68bfb06e9
 - Edit files directly within the Codespace and commit and push your changes once you're done.
 
 ## What technologies are used for this project?
@@ -59,15 +102,3 @@ This project is built with:
 - React
 - shadcn-ui
 - Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/a45a1a4c-5327-47ce-86ca-82c68bfb06e9) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
