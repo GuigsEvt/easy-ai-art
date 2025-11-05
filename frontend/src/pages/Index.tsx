@@ -1,13 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Sparkles } from "lucide-react";
+import { Sparkles, X } from "lucide-react";
 import ModeSelector from "@/components/ModeSelector";
 import ParameterControls from "@/components/ParameterControls";
 import ImageDisplay from "@/components/ImageDisplay";
+import GenerationProgress from "@/components/GenerationProgress";
 import { imageAPI } from "@/lib/api";
+import useStreamingGeneration from "@/hooks/use-streaming-generation";
 
 type Mode = "text-to-image" | "text-to-video" | "image-to-image";
 
@@ -22,9 +24,44 @@ const Index = () => {
   const [width, setWidth] = useState(512);
   const [height, setHeight] = useState(512);
   const [sampler, setSampler] = useState("lcm"); // SDXL-Turbo uses LCM
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [useStreaming, setUseStreaming] = useState(true); // Toggle for streaming vs regular generation
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [generationTime, setGenerationTime] = useState<number | null>(null);
+
+  // Streaming generation hook
+  const {
+    isGenerating: streamingGenerating,
+    progress,
+    stage,
+    currentStep,
+    totalSteps,
+    error: streamingError,
+    result: streamingResult,
+    generateImageStream,
+    cancelGeneration,
+    resetState
+  } = useStreamingGeneration();
+
+  // Legacy state for non-streaming generation
+  const [legacyGenerating, setLegacyGenerating] = useState(false);
+
+  const isGenerating = useStreaming ? streamingGenerating : legacyGenerating;
+
+  // Update image when streaming completes
+  useEffect(() => {
+    if (streamingResult) {
+      setGeneratedImage(streamingResult.image_url);
+      setGenerationTime(streamingResult.generation_time);
+      toast.success(`Image generated successfully! (${streamingResult.generation_time.toFixed(1)}s)`);
+    }
+  }, [streamingResult]);
+
+  // Handle streaming errors
+  useEffect(() => {
+    if (streamingError) {
+      toast.error(streamingError);
+    }
+  }, [streamingError]);
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
@@ -32,35 +69,53 @@ const Index = () => {
       return;
     }
 
-    setIsGenerating(true);
+    // Reset previous results
     setGeneratedImage(null);
     setGenerationTime(null);
+    resetState();
 
-    try {
-      const result = await imageAPI.generateImage({
-        prompt: prompt.trim(),
-        negative_prompt: negativePrompt.trim() || undefined,
-        width,
-        height,
-        num_inference_steps: steps,
-        guidance_scale: guidanceScale,
-        seed: seed ? parseInt(seed) : undefined,
-        model_name: "sdxl-turbo",
-      });
+    const requestParams = {
+      prompt: prompt.trim(),
+      negative_prompt: negativePrompt.trim() || undefined,
+      width,
+      height,
+      num_inference_steps: steps,
+      guidance_scale: guidanceScale,
+      seed: seed ? parseInt(seed) : undefined,
+      model_name: "sdxl-turbo",
+    };
 
-      if (result.success && result.image_url) {
-        setGeneratedImage(result.image_url);
-        setGenerationTime(result.generation_time || null);
-        toast.success(`Image generated successfully! ${result.generation_time ? `(${result.generation_time.toFixed(1)}s)` : ''}`);
-      } else {
-        throw new Error(result.message || "No image URL returned");
+    if (useStreaming) {
+      // Use streaming generation
+      await generateImageStream(requestParams);
+    } else {
+      // Use legacy generation
+      setLegacyGenerating(true);
+      
+      try {
+        const result = await imageAPI.generateImage(requestParams);
+
+        if (result.success && result.image_url) {
+          setGeneratedImage(result.image_url);
+          setGenerationTime(result.generation_time || null);
+          toast.success(`Image generated successfully! ${result.generation_time ? `(${result.generation_time.toFixed(1)}s)` : ''}`);
+        } else {
+          throw new Error(result.message || "No image URL returned");
+        }
+      } catch (error) {
+        console.error("Generation error:", error);
+        const errorMessage = error instanceof Error ? error.message : "Failed to generate image";
+        toast.error(errorMessage);
+      } finally {
+        setLegacyGenerating(false);
       }
-    } catch (error) {
-      console.error("Generation error:", error);
-      const errorMessage = error instanceof Error ? error.message : "Failed to generate image";
-      toast.error(errorMessage);
-    } finally {
-      setIsGenerating(false);
+    }
+  };
+
+  const handleCancel = () => {
+    if (useStreaming && streamingGenerating) {
+      cancelGeneration();
+      toast.info("Generation cancelled");
     }
   };
 
@@ -126,27 +181,73 @@ const Index = () => {
                   onSamplerChange={setSampler}
                 />
 
-                <Button
-                  onClick={handleGenerate}
-                  disabled={isGenerating || !prompt.trim()}
-                  className="w-full bg-gradient-primary hover:shadow-glow transition-all duration-300"
-                  size="lg"
-                >
-                  {isGenerating ? (
-                    <>Generating...</>
-                  ) : (
-                    <>
-                      <Sparkles className="mr-2 h-5 w-5" />
-                      Generate Image
-                    </>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleGenerate}
+                    disabled={isGenerating || !prompt.trim()}
+                    className="flex-1 bg-gradient-primary hover:shadow-glow transition-all duration-300"
+                    size="lg"
+                  >
+                    {isGenerating ? (
+                      <>Generating...</>
+                    ) : (
+                      <>
+                        <Sparkles className="mr-2 h-5 w-5" />
+                        Generate Image
+                      </>
+                    )}
+                  </Button>
+                  
+                  {isGenerating && useStreaming && (
+                    <Button
+                      onClick={handleCancel}
+                      variant="outline"
+                      size="lg"
+                      className="px-3"
+                    >
+                      <X className="h-5 w-5" />
+                    </Button>
                   )}
-                </Button>
+                </div>
+                
+                {/* Streaming Toggle */}
+                <div className="flex items-center justify-between pt-4 border-t border-border">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="streaming"
+                      checked={useStreaming}
+                      onChange={(e) => setUseStreaming(e.target.checked)}
+                      className="rounded"
+                      disabled={isGenerating}
+                    />
+                    <label htmlFor="streaming" className="text-sm font-medium">
+                      Real-time progress updates
+                    </label>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {useStreaming ? "Streaming enabled" : "Legacy mode"}
+                  </span>
+                </div>
               </div>
             </Card>
           </div>
 
-          {/* Right Panel - Image Display */}
-          <div>
+          {/* Right Panel - Progress and Image Display */}
+          <div className="space-y-6">
+            {/* Progress Component */}
+            {useStreaming && (
+              <GenerationProgress
+                isGenerating={streamingGenerating}
+                progress={progress}
+                stage={stage}
+                currentStep={currentStep}
+                totalSteps={totalSteps}
+                error={streamingError}
+              />
+            )}
+            
+            {/* Image Display */}
             <ImageDisplay 
               imageUrl={generatedImage} 
               isGenerating={isGenerating} 

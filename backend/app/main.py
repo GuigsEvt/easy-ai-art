@@ -4,7 +4,7 @@ from fastapi.staticfiles import StaticFiles
 import os
 import json
 
-from app.routes import generate
+from app.routes import generate, stream
 
 app = FastAPI(title="Easy AI Art API", description="AI Image Generation API", version="1.0.0")
 
@@ -30,6 +30,7 @@ if os.path.exists("outputs"):
 
 # Include routes
 app.include_router(generate.router, prefix="/api", tags=["generation"])
+app.include_router(stream.router, prefix="/api", tags=["streaming"])
 
 @app.get("/")
 async def root():

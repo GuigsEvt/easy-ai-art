@@ -1,6 +1,6 @@
 import os
 import logging
-from typing import Optional, List
+from typing import Optional, List, Callable
 import asyncio
 from datetime import datetime
 from pathlib import Path
@@ -56,10 +56,14 @@ class ImagePipeline:
         num_inference_steps: int = 6,
         guidance_scale: float = 1.0,
         seed: Optional[int] = None,
-        model_name: str = "sdxl-turbo"
+        model_name: str = "sdxl-turbo",
+        progress_callback: Optional[Callable[[int, int, str], None]] = None
     ) -> str:
         """
         Generate an image based on the given parameters.
+        
+        Args:
+            progress_callback: Optional callback function called with (current_step, total_steps, stage)
         
         Returns:
             str: Filename of the generated image
@@ -78,9 +82,17 @@ class ImagePipeline:
             steps = max(1, min(num_inference_steps, 24))
             guidance = max(0.5, min(guidance_scale, 2.0))
             
+            # Progress callback for loading model
+            if progress_callback:
+                progress_callback(0, steps, "Loading model")
+            
             # Load the pipeline
             model_path = self.default_model_path if model_name == "sdxl-turbo" else model_name
             pipe = self._load_pipeline(model_path, "lcm")
+            
+            # Progress callback for preparing
+            if progress_callback:
+                progress_callback(0, steps, "Preparing generation")
             
             # Set up generator for reproducibility
             device, _ = self._get_device_info()
@@ -90,6 +102,14 @@ class ImagePipeline:
                     generator = torch.Generator(device="cuda").manual_seed(seed)
                 else:
                     generator = torch.Generator(device="cpu").manual_seed(seed)
+            
+            # Create a custom callback wrapper for diffusers progress
+            current_step = [0]  # Use list to allow modification in nested function
+            
+            def diffusion_callback(step, timestep, latents):
+                current_step[0] = step + 1
+                if progress_callback:
+                    progress_callback(current_step[0], steps, f"Generating (step {current_step[0]}/{steps})")
             
             # Run generation in executor to avoid blocking
             def _generate():
@@ -101,15 +121,25 @@ class ImagePipeline:
                     width=w,
                     height=h,
                     generator=generator,
+                    callback=diffusion_callback,
+                    callback_steps=1,  # Call callback after each step
                 )
             
             # Execute generation asynchronously
             loop = asyncio.get_event_loop()
             result = await loop.run_in_executor(None, _generate)
             
+            # Progress callback for post-processing
+            if progress_callback:
+                progress_callback(steps, steps, "Post-processing")
+            
             # Save the generated image
             img = result.images[0]
             output_path = save_image(img, prefix="sdxl_turbo")
+            
+            # Final completion callback
+            if progress_callback:
+                progress_callback(steps, steps, "Completed")
             
             generation_time = time.time() - start_time
             logger.info(f"Image generated successfully in {generation_time:.2f}s: {output_path.name}")
@@ -117,6 +147,97 @@ class ImagePipeline:
             
         except Exception as e:
             logger.error(f"Error in image generation: {str(e)}")
+            raise
+    
+    async def generate_with_sync_callback(
+        self,
+        prompt: str,
+        negative_prompt: Optional[str] = None,
+        width: int = 512,
+        height: int = 512,
+        num_inference_steps: int = 6,
+        guidance_scale: float = 1.0,
+        seed: Optional[int] = None,
+        model_name: str = "sdxl-turbo",
+        diffusion_callback: Optional[Callable] = None,
+        progress_callback: Optional[Callable[[int, int, str], None]] = None
+    ) -> str:
+        """
+        Generate an image with sync-compatible callbacks for threading.
+        
+        Args:
+            diffusion_callback: Callback for diffusion steps (step, timestep, latents)
+            progress_callback: Progress callback function called with (current_step, total_steps, stage)
+        
+        Returns:
+            str: Filename of the generated image
+        """
+        try:
+            start_time = time.time()
+            logger.info(f"Starting threaded image generation with model: {model_name}")
+            logger.info(f"Prompt: {prompt}")
+            logger.info(f"Parameters: {width}x{height}, steps={num_inference_steps}, guidance={guidance_scale}")
+            
+            # Clamp dimensions to multiples of 8
+            w = multiple_of_8(width)
+            h = multiple_of_8(height)
+            
+            # Adjust parameters for SDXL-Turbo
+            steps = max(1, min(num_inference_steps, 24))
+            guidance = max(0.5, min(guidance_scale, 2.0))
+            
+            # Progress callback for loading model
+            if progress_callback:
+                progress_callback(0, steps, "Loading model")
+            
+            # Load the pipeline
+            model_path = self.default_model_path if model_name == "sdxl-turbo" else model_name
+            pipe = self._load_pipeline(model_path, "lcm")
+            
+            # Progress callback for preparing
+            if progress_callback:
+                progress_callback(0, steps, "Preparing generation")
+            
+            # Set up generator for reproducibility
+            device, _ = self._get_device_info()
+            generator = None
+            if seed is not None:
+                if device == "cuda":
+                    generator = torch.Generator(device="cuda").manual_seed(seed)
+                else:
+                    generator = torch.Generator(device="cpu").manual_seed(seed)
+            
+            # Run generation synchronously in this thread
+            result = pipe(
+                prompt=prompt,
+                negative_prompt=negative_prompt or None,
+                num_inference_steps=steps,
+                guidance_scale=guidance,
+                width=w,
+                height=h,
+                generator=generator,
+                callback=diffusion_callback if diffusion_callback else None,
+                callback_steps=1 if diffusion_callback else None,
+            )
+            
+            # Progress callback for post-processing
+            if progress_callback:
+                progress_callback(steps, steps, "Post-processing")
+            
+            # Save the generated image
+            img = result.images[0]
+            output_path = save_image(img, prefix="sdxl_turbo")
+            
+            # Final completion callback
+            if progress_callback:
+                progress_callback(steps, steps, "Completed")
+            
+            generation_time = time.time() - start_time
+            logger.info(f"Threaded image generated successfully in {generation_time:.2f}s: {output_path.name}")
+            return output_path.name
+            
+        except Exception as e:
+            logger.error(f"Error in threaded image generation: {str(e)}")
             raise
     
     def get_available_models(self) -> List[str]:
