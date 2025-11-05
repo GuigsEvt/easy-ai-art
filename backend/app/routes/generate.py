@@ -28,7 +28,8 @@ async def generate_image(request: GenerationRequest):
             num_inference_steps=request.num_inference_steps,
             guidance_scale=request.guidance_scale,
             seed=request.seed,
-            model_name=request.model_name
+            model_name=request.model_name,
+            sampler=request.sampler
         )
         
         generation_time = time.time() - start_time

@@ -57,6 +57,7 @@ class ImagePipeline:
         guidance_scale: float = 1.0,
         seed: Optional[int] = None,
         model_name: str = "sdxl-turbo",
+        sampler: str = "lcm",
         progress_callback: Optional[Callable[[int, int, str], None]] = None
     ) -> str:
         """
@@ -72,7 +73,7 @@ class ImagePipeline:
             start_time = time.time()
             logger.info(f"Starting image generation with model: {model_name}")
             logger.info(f"Prompt: {prompt}")
-            logger.info(f"Parameters: {width}x{height}, steps={num_inference_steps}, guidance={guidance_scale}")
+            logger.info(f"Parameters: {width}x{height}, steps={num_inference_steps}, guidance={guidance_scale}, sampler={sampler}")
             
             # Clamp dimensions to multiples of 8
             w = multiple_of_8(width)
@@ -88,7 +89,7 @@ class ImagePipeline:
             
             # Load the pipeline
             model_path = self.default_model_path if model_name == "sdxl-turbo" else model_name
-            pipe = self._load_pipeline(model_path, "lcm")
+            pipe = self._load_pipeline(model_path, sampler)
             
             # Progress callback for preparing
             if progress_callback:
@@ -159,6 +160,7 @@ class ImagePipeline:
         guidance_scale: float = 1.0,
         seed: Optional[int] = None,
         model_name: str = "sdxl-turbo",
+        sampler: str = "lcm",
         diffusion_callback: Optional[Callable] = None,
         progress_callback: Optional[Callable[[int, int, str], None]] = None
     ) -> str:
@@ -176,7 +178,7 @@ class ImagePipeline:
             start_time = time.time()
             logger.info(f"Starting threaded image generation with model: {model_name}")
             logger.info(f"Prompt: {prompt}")
-            logger.info(f"Parameters: {width}x{height}, steps={num_inference_steps}, guidance={guidance_scale}")
+            logger.info(f"Parameters: {width}x{height}, steps={num_inference_steps}, guidance={guidance_scale}, sampler={sampler}")
             
             # Clamp dimensions to multiples of 8
             w = multiple_of_8(width)
@@ -192,7 +194,7 @@ class ImagePipeline:
             
             # Load the pipeline
             model_path = self.default_model_path if model_name == "sdxl-turbo" else model_name
-            pipe = self._load_pipeline(model_path, "lcm")
+            pipe = self._load_pipeline(model_path, sampler)
             
             # Progress callback for preparing
             if progress_callback:

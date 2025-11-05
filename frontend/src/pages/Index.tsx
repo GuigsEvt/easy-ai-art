@@ -83,6 +83,7 @@ const Index = () => {
       guidance_scale: guidanceScale,
       seed: seed ? parseInt(seed) : undefined,
       model_name: "sdxl-turbo",
+      sampler: sampler,
     };
 
     if (useStreaming) {

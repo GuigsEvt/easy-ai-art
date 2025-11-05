@@ -143,21 +143,6 @@ const ParameterControls = ({
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="sampler">Sampler</Label>
-        <Select value={sampler} onValueChange={onSamplerChange}>
-          <SelectTrigger id="sampler" className="bg-secondary/50 border-border">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {samplers.map((s) => (
-              <SelectItem key={s} value={s}>
-                {s}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
     </div>
   );
 };
