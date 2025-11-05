@@ -1,32 +1,51 @@
 import os
-import uuid
 import logging
 from typing import Optional, List
 import asyncio
 from datetime import datetime
+from pathlib import Path
+import torch
+from PIL import Image
+import time
+
+from .text2image import build_pipe, detect_device, multiple_of_8, save_image, SAMPLERS
 
 logger = logging.getLogger(__name__)
 
 class ImagePipeline:
     """
-    Image generation pipeline using diffusion models.
-    This is a placeholder implementation that will be expanded with actual AI models.
+    Image generation pipeline using diffusion models with SDXL-Turbo.
     """
     
     def __init__(self):
-        self.models_dir = "models"
-        self.outputs_dir = "outputs"
+        self.models_dir = Path("app/models")
+        self.outputs_dir = Path("outputs")
+        self.default_model_path = "app/models/sdxl-turbo"
         self.available_models = [
-            "runwayml/stable-diffusion-v1-5",
-            "stabilityai/stable-diffusion-2-1", 
-            "stabilityai/stable-diffusion-xl-base-1.0"
+            "sdxl-turbo"  # Local model we have available
         ]
         self._ensure_directories()
+        self._device = None
+        self._dtype = None
+        self._pipe = None
     
     def _ensure_directories(self):
         """Ensure required directories exist"""
-        os.makedirs(self.models_dir, exist_ok=True)
-        os.makedirs(self.outputs_dir, exist_ok=True)
+        self.models_dir.mkdir(parents=True, exist_ok=True)
+        self.outputs_dir.mkdir(parents=True, exist_ok=True)
+    
+    def _get_device_info(self):
+        """Get device and dtype information"""
+        if self._device is None or self._dtype is None:
+            self._device, self._dtype = detect_device()
+        return self._device, self._dtype
+    
+    def _load_pipeline(self, model_path: str, sampler: str = "lcm"):
+        """Load the diffusion pipeline"""
+        if self._pipe is None:
+            device, dtype = self._get_device_info()
+            self._pipe = build_pipe(model_path, sampler, device, dtype)
+        return self._pipe
     
     async def generate(
         self,
@@ -34,10 +53,10 @@ class ImagePipeline:
         negative_prompt: Optional[str] = None,
         width: int = 512,
         height: int = 512,
-        num_inference_steps: int = 20,
-        guidance_scale: float = 7.5,
+        num_inference_steps: int = 6,
+        guidance_scale: float = 1.0,
         seed: Optional[int] = None,
-        model_name: str = "runwayml/stable-diffusion-v1-5"
+        model_name: str = "sdxl-turbo"
     ) -> str:
         """
         Generate an image based on the given parameters.
@@ -46,26 +65,55 @@ class ImagePipeline:
             str: Filename of the generated image
         """
         try:
-            # Generate unique filename
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            image_id = str(uuid.uuid4())[:8]
-            filename = f"generated_{timestamp}_{image_id}.png"
-            
+            start_time = time.time()
             logger.info(f"Starting image generation with model: {model_name}")
             logger.info(f"Prompt: {prompt}")
             logger.info(f"Parameters: {width}x{height}, steps={num_inference_steps}, guidance={guidance_scale}")
             
-            # TODO: Implement actual image generation here
-            # For now, this is a placeholder that simulates the generation process
-            await asyncio.sleep(2)  # Simulate generation time
+            # Clamp dimensions to multiples of 8
+            w = multiple_of_8(width)
+            h = multiple_of_8(height)
             
-            # Create a placeholder file (in real implementation, this would be the generated image)
-            output_path = os.path.join(self.outputs_dir, filename)
-            with open(output_path, 'w') as f:
-                f.write(f"Placeholder for generated image\nPrompt: {prompt}\nModel: {model_name}")
+            # Adjust parameters for SDXL-Turbo
+            steps = max(1, min(num_inference_steps, 24))
+            guidance = max(0.5, min(guidance_scale, 2.0))
             
-            logger.info(f"Image generated successfully: {filename}")
-            return filename
+            # Load the pipeline
+            model_path = self.default_model_path if model_name == "sdxl-turbo" else model_name
+            pipe = self._load_pipeline(model_path, "lcm")
+            
+            # Set up generator for reproducibility
+            device, _ = self._get_device_info()
+            generator = None
+            if seed is not None:
+                if device == "cuda":
+                    generator = torch.Generator(device="cuda").manual_seed(seed)
+                else:
+                    generator = torch.Generator(device="cpu").manual_seed(seed)
+            
+            # Run generation in executor to avoid blocking
+            def _generate():
+                return pipe(
+                    prompt=prompt,
+                    negative_prompt=negative_prompt or None,
+                    num_inference_steps=steps,
+                    guidance_scale=guidance,
+                    width=w,
+                    height=h,
+                    generator=generator,
+                )
+            
+            # Execute generation asynchronously
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(None, _generate)
+            
+            # Save the generated image
+            img = result.images[0]
+            output_path = save_image(img, prefix="sdxl_turbo")
+            
+            generation_time = time.time() - start_time
+            logger.info(f"Image generated successfully in {generation_time:.2f}s: {output_path.name}")
+            return output_path.name
             
         except Exception as e:
             logger.error(f"Error in image generation: {str(e)}")
@@ -79,6 +127,4 @@ class ImagePipeline:
         """Set random seed for reproducibility"""
         if seed is None:
             seed = int(datetime.now().timestamp())
-        
-        # TODO: Set seed for torch/numpy/etc when implementing actual models
         return seed

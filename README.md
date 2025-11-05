@@ -60,6 +60,123 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 # Backend runs on http://localhost:8000
 ```
 
+## Testing the Uvicorn API Server
+
+After setting up the backend, you can test the AI image generation API using the following methods:
+
+### 1. Start the Server
+
+```bash
+cd backend
+
+# Using virtual environment (recommended)
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
+
+# Or set PYTHONPATH if needed
+PYTHONPATH=/path/to/backend python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8001
+```
+
+### 2. Test Endpoints
+
+**Health Check:**
+```bash
+curl -X GET "http://localhost:8001/health"
+# Expected response: {"status":"healthy"}
+```
+
+**List Available Models:**
+```bash
+curl -X GET "http://localhost:8001/api/models"
+# Expected response: {"models":["sdxl-turbo"]}
+```
+
+**Generate an Image:**
+```bash
+curl -X POST "http://localhost:8001/api/generate" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "a beautiful sunset over mountains",
+    "width": 512,
+    "height": 512,
+    "num_inference_steps": 6,
+    "guidance_scale": 1.0,
+    "model_name": "sdxl-turbo"
+  }'
+```
+
+**Generate with Advanced Parameters:**
+```bash
+curl -X POST "http://localhost:8001/api/generate" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "a cute cat sitting in a garden",
+    "negative_prompt": "blurry, low quality",
+    "width": 512,
+    "height": 512,
+    "num_inference_steps": 8,
+    "guidance_scale": 1.2,
+    "seed": 42,
+    "model_name": "sdxl-turbo"
+  }'
+```
+
+### 3. API Response Format
+
+Successful image generation returns:
+```json
+{
+  "success": true,
+  "image_url": "/images/sdxl_turbo_1762342632455.png",
+  "message": "Image generated successfully",
+  "filename": "sdxl_turbo_1762342632455.png",
+  "generation_time": 15.6
+}
+```
+
+### 4. Access Generated Images
+
+Images are served statically at:
+```
+http://localhost:8001/images/{filename}
+```
+
+For example:
+```bash
+curl -I "http://localhost:8001/images/sdxl_turbo_1762342632455.png"
+```
+
+### 5. Interactive API Documentation
+
+Visit the auto-generated docs:
+- **Swagger UI**: http://localhost:8001/docs
+- **ReDoc**: http://localhost:8001/redoc
+
+### 6. Example Python Client
+
+```python
+import requests
+import json
+
+# Generate an image
+response = requests.post(
+    'http://localhost:8001/api/generate',
+    headers={'Content-Type': 'application/json'},
+    json={
+        'prompt': 'a magical forest with glowing mushrooms',
+        'width': 512,
+        'height': 512,
+        'num_inference_steps': 6,
+        'guidance_scale': 1.0,
+        'model_name': 'sdxl-turbo'
+    }
+)
+
+result = response.json()
+print(f"Generated image: {result['image_url']}")
+print(f"Generation time: {result['generation_time']:.2f}s")
+```
+
 ## Development
 
 **Frontend (React + Vite):**
