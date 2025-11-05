@@ -6,13 +6,11 @@ import { Slider } from "@/components/ui/slider";
 interface ParameterControlsProps {
   seed: string;
   steps: number;
-  guidanceScale: number;
   width: number;
   height: number;
   sampler: string;
   onSeedChange: (value: string) => void;
   onStepsChange: (value: number) => void;
-  onGuidanceScaleChange: (value: number) => void;
   onWidthChange: (value: number) => void;
   onHeightChange: (value: number) => void;
   onSamplerChange: (value: string) => void;
@@ -21,13 +19,11 @@ interface ParameterControlsProps {
 const ParameterControls = ({
   seed,
   steps,
-  guidanceScale,
   width,
   height,
   sampler,
   onSeedChange,
   onStepsChange,
-  onGuidanceScaleChange,
   onWidthChange,
   onHeightChange,
   onSamplerChange,
@@ -121,25 +117,6 @@ const ParameterControls = ({
         />
         <div className="text-xs text-muted-foreground">
           Recommended: 4-8 for SDXL-Turbo
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <div className="flex justify-between items-center">
-          <Label htmlFor="guidance">Guidance Scale</Label>
-          <span className="text-sm text-muted-foreground">{guidanceScale}</span>
-        </div>
-        <Slider
-          id="guidance"
-          min={0.5}
-          max={2.0}
-          step={0.1}
-          value={[guidanceScale]}
-          onValueChange={(value) => onGuidanceScaleChange(value[0])}
-          className="py-4"
-        />
-        <div className="text-xs text-muted-foreground">
-          Recommended: 1.0-1.5 for SDXL-Turbo
         </div>
       </div>
 

@@ -82,7 +82,6 @@ async def generate_with_progress(request: GenerationRequest) -> AsyncGenerator[s
                         width=request.width,
                         height=request.height,
                         num_inference_steps=request.num_inference_steps,
-                        guidance_scale=request.guidance_scale,
                         seed=request.seed,
                         model_name=request.model_name,
                         diffusion_callback=diffusion_callback,

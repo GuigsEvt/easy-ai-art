@@ -54,7 +54,6 @@ class ImagePipeline:
         width: int = 512,
         height: int = 512,
         num_inference_steps: int = 6,
-        guidance_scale: float = 1.0,
         seed: Optional[int] = None,
         model_name: str = "sdxl-turbo",
         sampler: str = "lcm",
@@ -73,6 +72,9 @@ class ImagePipeline:
             start_time = time.time()
             logger.info(f"Starting image generation with model: {model_name}")
             logger.info(f"Prompt: {prompt}")
+            
+            # Set optimal guidance scale for prompt following with SDXL-Turbo
+            guidance_scale = 1.5
             logger.info(f"Parameters: {width}x{height}, steps={num_inference_steps}, guidance={guidance_scale}, sampler={sampler}")
             
             # Clamp dimensions to multiples of 8
@@ -157,7 +159,6 @@ class ImagePipeline:
         width: int = 512,
         height: int = 512,
         num_inference_steps: int = 6,
-        guidance_scale: float = 1.0,
         seed: Optional[int] = None,
         model_name: str = "sdxl-turbo",
         sampler: str = "lcm",
@@ -178,6 +179,9 @@ class ImagePipeline:
             start_time = time.time()
             logger.info(f"Starting threaded image generation with model: {model_name}")
             logger.info(f"Prompt: {prompt}")
+            
+            # Set optimal guidance scale for prompt following with SDXL-Turbo
+            guidance_scale = 1.5
             logger.info(f"Parameters: {width}x{height}, steps={num_inference_steps}, guidance={guidance_scale}, sampler={sampler}")
             
             # Clamp dimensions to multiples of 8

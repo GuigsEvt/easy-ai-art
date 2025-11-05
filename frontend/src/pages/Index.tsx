@@ -20,7 +20,6 @@ const Index = () => {
   const [negativePrompt, setNegativePrompt] = useState("");
   const [seed, setSeed] = useState("");
   const [steps, setSteps] = useState(6); // Default for SDXL-Turbo
-  const [guidanceScale, setGuidanceScale] = useState(1.0); // Default for SDXL-Turbo
   const [width, setWidth] = useState(512);
   const [height, setHeight] = useState(512);
   const [sampler, setSampler] = useState("lcm"); // SDXL-Turbo uses LCM
@@ -80,7 +79,6 @@ const Index = () => {
       width,
       height,
       num_inference_steps: steps,
-      guidance_scale: guidanceScale,
       seed: seed ? parseInt(seed) : undefined,
       model_name: "sdxl-turbo",
       sampler: sampler,
@@ -170,13 +168,11 @@ const Index = () => {
                 <ParameterControls
                   seed={seed}
                   steps={steps}
-                  guidanceScale={guidanceScale}
                   width={width}
                   height={height}
                   sampler={sampler}
                   onSeedChange={setSeed}
                   onStepsChange={setSteps}
-                  onGuidanceScaleChange={setGuidanceScale}
                   onWidthChange={setWidth}
                   onHeightChange={setHeight}
                   onSamplerChange={setSampler}
