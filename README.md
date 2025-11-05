@@ -43,7 +43,19 @@ npm run dev
 **Backend Setup:**
 ```bash
 cd backend
+
+# 0) (optional) recreate venv if things are messy
+# python3 -m venv .venv && source .venv/bin/activate
+
+pip install --upgrade pip setuptools wheel
+
+# 1) Torch for macOS (MPS is included)
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+
+# 2) The rest
 pip install -r requirements.txt
+
+# Start the backend server
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 # Backend runs on http://localhost:8000
 ```
@@ -86,7 +98,13 @@ Copy `.env.example` to `.env` and configure:
 
 1. Uncomment AI dependencies in `backend/requirements.txt`
 2. Install: `pip install torch diffusers transformers`
-3. Update `backend/app/core/pipeline.py` with actual model implementation
+3. Download models using Hugging Face CLI:
+```bash
+huggingface-cli download stabilityai/sdxl-turbo \
+  --local-dir ./backend/models/sdxl-turbo \
+  --local-dir-use-symlinks False
+```
+4. Update `backend/app/core/pipeline.py` with actual model implementation
 
 ## Project Info
 
