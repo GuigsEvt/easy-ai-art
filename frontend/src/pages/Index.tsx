@@ -7,6 +7,7 @@ import { Sparkles } from "lucide-react";
 import ModeSelector from "@/components/ModeSelector";
 import ParameterControls from "@/components/ParameterControls";
 import ImageDisplay from "@/components/ImageDisplay";
+import { imageAPI } from "@/lib/api";
 
 type Mode = "text-to-image" | "text-to-video" | "image-to-image";
 
@@ -14,11 +15,16 @@ const Index = () => {
   // State management
   const [selectedMode, setSelectedMode] = useState<Mode>("text-to-image");
   const [prompt, setPrompt] = useState("");
+  const [negativePrompt, setNegativePrompt] = useState("");
   const [seed, setSeed] = useState("");
-  const [steps, setSteps] = useState(20);
-  const [sampler, setSampler] = useState("euler");
+  const [steps, setSteps] = useState(6); // Default for SDXL-Turbo
+  const [guidanceScale, setGuidanceScale] = useState(1.0); // Default for SDXL-Turbo
+  const [width, setWidth] = useState(512);
+  const [height, setHeight] = useState(512);
+  const [sampler, setSampler] = useState("lcm"); // SDXL-Turbo uses LCM
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [generationTime, setGenerationTime] = useState<number | null>(null);
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
@@ -28,36 +34,31 @@ const Index = () => {
 
     setIsGenerating(true);
     setGeneratedImage(null);
+    setGenerationTime(null);
 
     try {
-      const response = await fetch("/api/generate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          prompt: prompt.trim(),
-          seed: seed ? parseInt(seed) : undefined,
-          num_inference_steps: steps,
-          sampler,
-        }),
+      const result = await imageAPI.generateImage({
+        prompt: prompt.trim(),
+        negative_prompt: negativePrompt.trim() || undefined,
+        width,
+        height,
+        num_inference_steps: steps,
+        guidance_scale: guidanceScale,
+        seed: seed ? parseInt(seed) : undefined,
+        model_name: "sdxl-turbo",
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      if (data.success && data.image_url) {
-        setGeneratedImage(data.image_url);
-        toast.success("Image generated successfully!");
+      if (result.success && result.image_url) {
+        setGeneratedImage(result.image_url);
+        setGenerationTime(result.generation_time || null);
+        toast.success(`Image generated successfully! ${result.generation_time ? `(${result.generation_time.toFixed(1)}s)` : ''}`);
       } else {
-        throw new Error(data.message || "No image URL returned");
+        throw new Error(result.message || "No image URL returned");
       }
     } catch (error) {
       console.error("Generation error:", error);
-      toast.error("Failed to generate image. Please try again.");
+      const errorMessage = error instanceof Error ? error.message : "Failed to generate image";
+      toast.error(errorMessage);
     } finally {
       setIsGenerating(false);
     }
@@ -100,12 +101,28 @@ const Index = () => {
                   />
                 </div>
 
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Negative Prompt</label>
+                  <Textarea
+                    placeholder="Describe what you don't want (optional)..."
+                    value={negativePrompt}
+                    onChange={(e) => setNegativePrompt(e.target.value)}
+                    className="min-h-[80px] bg-secondary/50 border-border resize-none"
+                  />
+                </div>
+
                 <ParameterControls
                   seed={seed}
                   steps={steps}
+                  guidanceScale={guidanceScale}
+                  width={width}
+                  height={height}
                   sampler={sampler}
                   onSeedChange={setSeed}
                   onStepsChange={setSteps}
+                  onGuidanceScaleChange={setGuidanceScale}
+                  onWidthChange={setWidth}
+                  onHeightChange={setHeight}
                   onSamplerChange={setSampler}
                 />
 
@@ -130,7 +147,11 @@ const Index = () => {
 
           {/* Right Panel - Image Display */}
           <div>
-            <ImageDisplay imageUrl={generatedImage} isGenerating={isGenerating} />
+            <ImageDisplay 
+              imageUrl={generatedImage} 
+              isGenerating={isGenerating} 
+              generationTime={generationTime}
+            />
           </div>
         </div>
       </div>

@@ -1,13 +1,14 @@
-import { Download, Loader2 } from "lucide-react";
+import { Download, Loader2, Clock, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
 interface ImageDisplayProps {
   imageUrl: string | null;
   isGenerating: boolean;
+  generationTime?: number | null;
 }
 
-const ImageDisplay = ({ imageUrl, isGenerating }: ImageDisplayProps) => {
+const ImageDisplay = ({ imageUrl, isGenerating, generationTime }: ImageDisplayProps) => {
   const handleDownload = () => {
     if (!imageUrl) return;
     
@@ -48,11 +49,20 @@ const ImageDisplay = ({ imageUrl, isGenerating }: ImageDisplayProps) => {
           </div>
         ) : (
           <div className="text-center space-y-2">
-            <div className="text-4xl">🎨</div>
+            <div className="w-16 h-16 mx-auto bg-secondary/50 rounded-full flex items-center justify-center">
+              <Sparkles className="h-8 w-8 text-muted-foreground" />
+            </div>
             <p className="text-muted-foreground">Your generated image will appear here</p>
           </div>
         )}
       </div>
+      
+      {generationTime && (
+        <div className="mt-4 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+          <Clock className="h-4 w-4" />
+          <span>Generated in {generationTime.toFixed(1)}s</span>
+        </div>
+      )}
     </Card>
   );
 };
