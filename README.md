@@ -23,7 +23,7 @@ git clone <YOUR_GIT_URL>
 cd easy-ai-art
 
 # Start both frontend and backend
-docker-compose up -d
+docker compose up -d
 
 # Frontend: http://localhost:8080
 # Backend API: http://localhost:8000
@@ -204,7 +204,6 @@ Copy `.env.example` to `.env` and configure:
 
 **Frontend:**
 - `VITE_API_BASE_URL` - Backend API URL
-- `VITE_SUPABASE_*` - Supabase configuration
 
 **Backend:**
 - `API_HOST`, `API_PORT` - Server configuration

@@ -18,11 +18,12 @@ class ImagePipeline:
     """
     
     def __init__(self):
-        self.models_dir = Path("app/models")
+        self.models_dir = Path("models")
         self.outputs_dir = Path("outputs")
-        self.default_model_path = "app/models/sdxl-turbo"
+        self.default_model_path = "models/sdxl-turbo"
         self.available_models = [
-            "sdxl-turbo"  # Local model we have available
+            "sdxl-turbo",      # Local model we have available
+            "sdxl-base-1.0"    # SDXL Base model
         ]
         self._ensure_directories()
         self._device = None
@@ -90,7 +91,17 @@ class ImagePipeline:
                 progress_callback(0, steps, "Loading model")
             
             # Load the pipeline
-            model_path = self.default_model_path if model_name == "sdxl-turbo" else model_name
+            if model_name == "sdxl-turbo":
+                model_path = self.default_model_path
+            else:
+                # Construct path for other models in the models directory
+                model_path = f"models/{model_name}"
+            
+            # Check if model exists
+            model_index_path = os.path.join(model_path, "model_index.json")
+            if not os.path.exists(model_index_path):
+                raise FileNotFoundError(f"model_index.json not found at: {os.path.abspath(model_index_path)}")
+            
             pipe = self._load_pipeline(model_path, sampler)
             
             # Progress callback for preparing
@@ -197,7 +208,17 @@ class ImagePipeline:
                 progress_callback(0, steps, "Loading model")
             
             # Load the pipeline
-            model_path = self.default_model_path if model_name == "sdxl-turbo" else model_name
+            if model_name == "sdxl-turbo":
+                model_path = self.default_model_path
+            else:
+                # Construct path for other models in the models directory
+                model_path = f"models/{model_name}"
+            
+            # Check if model exists
+            model_index_path = os.path.join(model_path, "model_index.json")
+            if not os.path.exists(model_index_path):
+                raise FileNotFoundError(f"model_index.json not found at: {os.path.abspath(model_index_path)}")
+            
             pipe = self._load_pipeline(model_path, sampler)
             
             # Progress callback for preparing

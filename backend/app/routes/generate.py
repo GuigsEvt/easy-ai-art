@@ -44,15 +44,3 @@ async def generate_image(request: GenerationRequest):
     except Exception as e:
         logger.error(f"Error generating image: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to generate image: {str(e)}")
-
-@router.get("/models")
-async def list_available_models():
-    """
-    List all available AI models for image generation.
-    """
-    try:
-        models = pipeline.get_available_models()
-        return {"models": models}
-    except Exception as e:
-        logger.error(f"Error listing models: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to list models: {str(e)}")

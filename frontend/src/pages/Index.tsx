@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Sparkles, X } from "lucide-react";
 import ModeSelector from "@/components/ModeSelector";
+import ModelSelector from "@/components/ModelSelector";
 import ParameterControls from "@/components/ParameterControls";
 import ImageDisplay from "@/components/ImageDisplay";
 import GenerationProgress from "@/components/GenerationProgress";
@@ -16,6 +17,7 @@ type Mode = "text-to-image" | "text-to-video" | "image-to-image";
 const Index = () => {
   // State management
   const [selectedMode, setSelectedMode] = useState<Mode>("text-to-image");
+  const [selectedModel, setSelectedModel] = useState<string>("sdxl-turbo");
   const [prompt, setPrompt] = useState("");
   const [negativePrompt, setNegativePrompt] = useState("");
   const [seed, setSeed] = useState("");
@@ -80,7 +82,7 @@ const Index = () => {
       height,
       num_inference_steps: steps,
       seed: seed ? parseInt(seed) : undefined,
-      model_name: "sdxl-turbo",
+      model_name: selectedModel,
       sampler: sampler,
     };
 
@@ -137,6 +139,11 @@ const Index = () => {
         {/* Mode Selector */}
         <div className="flex justify-center">
           <ModeSelector selectedMode={selectedMode} onModeChange={setSelectedMode} />
+        </div>
+
+        {/* Model Selector */}
+        <div className="max-w-2xl mx-auto">
+          <ModelSelector selectedModel={selectedModel} onModelChange={setSelectedModel} />
         </div>
 
         {/* Main Content */}
