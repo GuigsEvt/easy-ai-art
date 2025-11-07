@@ -17,7 +17,20 @@ async def generate_image(request: GenerationRequest):
     """
     try:
         start_time = time.time()
-        logger.info(f"Generating image with prompt: {request.prompt}")
+        
+        # Log all generation parameters
+        print("=" * 60)
+        print("🎨 NEW GENERATION REQUEST (NON-STREAMING)")
+        print("=" * 60)
+        print(f"📝 Prompt: {request.prompt[:100]}{'...' if len(request.prompt) > 100 else ''}")
+        print(f"❌ Negative Prompt: {request.negative_prompt or 'None'}")
+        print(f"📐 Dimensions: {request.width}x{request.height}")
+        print(f"🔢 Inference Steps: {request.num_inference_steps}")
+        print(f"� Guidance Scale: {request.guidance_scale}")
+        print(f"�🌱 Seed: {request.seed or 'Random'}")
+        print(f"🤖 Model: {request.model_name}")
+        print(f"⚙️ Sampler: {request.sampler}")
+        print("=" * 60)
         
         # Generate the image using the pipeline
         image_filename = await pipeline.generate(
@@ -26,6 +39,7 @@ async def generate_image(request: GenerationRequest):
             width=request.width,
             height=request.height,
             num_inference_steps=request.num_inference_steps,
+            guidance_scale=request.guidance_scale,
             seed=request.seed,
             model_name=request.model_name,
             sampler=request.sampler

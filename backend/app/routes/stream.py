@@ -155,6 +155,20 @@ async def generate_image_stream(request: GenerationRequest):
     Generate an AI image with real-time progress updates via Server-Sent Events
     """
     try:
+        # Print all generation parameters to console
+        print("=" * 60)
+        print("🎨 NEW GENERATION REQUEST")
+        print("=" * 60)
+        print(f"📝 Prompt: {request.prompt[:100]}{'...' if len(request.prompt) > 100 else ''}")
+        print(f"❌ Negative Prompt: {request.negative_prompt or 'None'}")
+        print(f"📐 Dimensions: {request.width}x{request.height}")
+        print(f"🔢 Inference Steps: {request.num_inference_steps}")
+        print(f"🎯 Guidance Scale: {getattr(request, 'guidance_scale', 'NOT SET')}")
+        print(f"🌱 Seed: {request.seed or 'Random'}")
+        print(f"🤖 Model: {request.model_name}")
+        print(f"⚙️ Sampler: {request.sampler}")
+        print("=" * 60)
+        
         return StreamingResponse(
             generate_with_progress(request),
             media_type="text/event-stream",
@@ -166,5 +180,6 @@ async def generate_image_stream(request: GenerationRequest):
             }
         )
     except Exception as e:
+        print(f"❌ ERROR starting streaming generation: {str(e)}")
         logger.error(f"Error starting streaming generation: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to start generation: {str(e)}")

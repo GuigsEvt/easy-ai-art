@@ -109,14 +109,14 @@ const ParameterControls = ({
         <Slider
           id="steps"
           min={1}
-          max={24}
+          max={50}
           step={1}
           value={[steps]}
           onValueChange={(value) => onStepsChange(value[0])}
           className="py-4"
         />
         <div className="text-xs text-muted-foreground">
-          Recommended: 4-8 for SDXL-Turbo
+          Recommended: 4-8 for SDXL-Turbo, 20-50 for SDXL-Base
         </div>
       </div>
 

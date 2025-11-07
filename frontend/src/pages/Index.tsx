@@ -81,10 +81,22 @@ const Index = () => {
       width,
       height,
       num_inference_steps: steps,
+      guidance_scale: selectedModel === 'sdxl-base-1.0' ? 7.5 : 1.0, // Auto-adjust based on model
       seed: seed ? parseInt(seed) : undefined,
       model_name: selectedModel,
       sampler: sampler,
     };
+
+    // Log the parameters being prepared
+    console.log('🚀 FRONTEND: Preparing Generation Parameters');
+    console.log('Parameters from UI:', requestParams);
+    console.log('Selected Model:', selectedModel);
+    console.log('Sampler:', sampler);
+    console.log('Steps:', steps);
+    console.log('Use Streaming:', useStreaming);
+    
+    // Also log with alert to make sure we can see it
+    console.warn('🚀 REQUEST PARAMS OBJECT:', JSON.stringify(requestParams, null, 2));
 
     if (useStreaming) {
       // Use streaming generation

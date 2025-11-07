@@ -71,12 +71,12 @@ class ImagePipeline:
         """
         try:
             start_time = time.time()
-            logger.info(f"Starting image generation with model: {model_name}")
-            logger.info(f"Prompt: {prompt}")
+            print(f"Starting image generation with model: {model_name}")
+            print(f"Prompt: {prompt}")
             
             # Set optimal guidance scale for prompt following with SDXL-Turbo
-            guidance_scale = 1.5
-            logger.info(f"Parameters: {width}x{height}, steps={num_inference_steps}, guidance={guidance_scale}, sampler={sampler}")
+            guidance_scale = 7.5
+            print(f"Parameters: {width}x{height}, steps={num_inference_steps}, guidance={guidance_scale}, sampler={sampler}")
             
             # Clamp dimensions to multiples of 8
             w = multiple_of_8(width)
@@ -188,20 +188,25 @@ class ImagePipeline:
         """
         try:
             start_time = time.time()
-            logger.info(f"Starting threaded image generation with model: {model_name}")
-            logger.info(f"Prompt: {prompt}")
+            print(f"Starting threaded image generation with model: {model_name}")
+            print(f"Prompt: {prompt}")
             
             # Set optimal guidance scale for prompt following with SDXL-Turbo
-            guidance_scale = 1.5
-            logger.info(f"Parameters: {width}x{height}, steps={num_inference_steps}, guidance={guidance_scale}, sampler={sampler}")
+            guidance_scale = 7
+            width = 1024
+            height = 1024
+            num_inference_steps = 30
+            sampler = 'euler'
+
+            print(f"Parameters: {width}x{height}, steps={num_inference_steps}, guidance={guidance_scale}, sampler={sampler}")
             
             # Clamp dimensions to multiples of 8
             w = multiple_of_8(width)
             h = multiple_of_8(height)
             
             # Adjust parameters for SDXL-Turbo
-            steps = max(1, min(num_inference_steps, 24))
-            guidance = max(0.5, min(guidance_scale, 2.0))
+            steps = num_inference_steps
+            guidance = guidance_scale
             
             # Progress callback for loading model
             if progress_callback:
@@ -260,11 +265,11 @@ class ImagePipeline:
                 progress_callback(steps, steps, "Completed")
             
             generation_time = time.time() - start_time
-            logger.info(f"Threaded image generated successfully in {generation_time:.2f}s: {output_path.name}")
+            print(f"Threaded image generated successfully in {generation_time:.2f}s: {output_path.name}")
             return output_path.name
             
         except Exception as e:
-            logger.error(f"Error in threaded image generation: {str(e)}")
+            print(f"Error in threaded image generation: {str(e)}")
             raise
     
     def get_available_models(self) -> List[str]:

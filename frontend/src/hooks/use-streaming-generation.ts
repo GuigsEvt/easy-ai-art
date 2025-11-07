@@ -67,7 +67,22 @@ const useStreamingGeneration = () => {
           guidance_scale: request.guidance_scale || 1.0,
           seed: request.seed || null,
           model_name: request.model_name || 'sdxl-turbo',
+          sampler: request.sampler || 'lcm',
         };
+
+        // Log all generation parameters to console
+        console.log('🎨 FRONTEND: Sending Generation Request');
+        console.log('=' .repeat(60));
+        console.log('📝 Prompt:', request.prompt?.substring(0, 100) + (request.prompt?.length > 100 ? '...' : ''));
+        console.log('❌ Negative Prompt:', request.negative_prompt || 'None');
+        console.log('📐 Dimensions:', `${requestBody.width}x${requestBody.height}`);
+        console.log('🔢 Inference Steps:', requestBody.num_inference_steps);
+        console.log('🎯 Guidance Scale:', requestBody.guidance_scale);
+        console.log('🌱 Seed:', requestBody.seed || 'Random');
+        console.log('🤖 Model:', requestBody.model_name);
+        console.log('⚙️ Sampler:', requestBody.sampler);
+        console.log('📦 Full Request Body:', requestBody);
+        console.log('=' .repeat(60));
 
         // Start the generation by making a POST request to the streaming endpoint
         const response = await fetch('/api/generate-stream', {
