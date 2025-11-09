@@ -195,7 +195,7 @@ class ImagePipeline:
             guidance_scale = 7
             width = 1024
             height = 1024
-            num_inference_steps = 30
+            num_inference_steps = 50
             sampler = 'euler'
 
             print(f"Parameters: {width}x{height}, steps={num_inference_steps}, guidance={guidance_scale}, sampler={sampler}")
