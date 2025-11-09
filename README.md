@@ -2,6 +2,10 @@
 
 A modern AI-powered image generation application with a React frontend and FastAPI backend.
 
+> **🚨 DEVELOPMENT PROJECT NOTICE**
+> 
+> This project is designed for **local development and testing purposes only**. It includes basic authentication features that are **NOT production-ready**. Do not deploy this to production environments without implementing proper security measures.
+
 ## Architecture
 
 ```
@@ -14,6 +18,22 @@ easy-ai-art/
 ```
 
 ## Quick Start
+
+### Environment Configuration
+
+Before starting, copy the environment templates and configure your settings:
+
+```bash
+# Backend configuration
+cd backend
+cp .env.example .env
+# Edit .env to customize authentication and API settings
+
+# Frontend configuration  
+cd ../frontend
+cp .env.example .env
+# Edit .env to match your backend configuration
+```
 
 ### Option 1: Using Docker Compose (Recommended)
 
@@ -193,22 +213,109 @@ print(f"Generation time: {result['generation_time']:.2f}s")
 
 ## API Endpoints
 
-- `GET /` - Health check
+### Public Endpoints
+- `GET /health` - Health check
+- `GET /api/auth/auth-config` - Get authentication configuration
+
+### Authentication Endpoints
+- `POST /api/auth/login` - Login with username/password
+- `POST /api/auth/logout` - Logout and clear session
+- `GET /api/auth/auth-status` - Check authentication status
+
+### Protected Endpoints (when AUTH_ENABLED=true)
+- `GET /` - API root (shows user info)
 - `POST /api/generate` - Generate AI image
 - `GET /api/models` - List available models
 - `GET /images/{filename}` - Serve generated images
+
+## Authentication
+
+Easy AI Art supports optional cookie-based authentication. Authentication can be enabled or disabled via environment variables.
+
+> **⚠️ IMPORTANT SECURITY WARNING**
+> 
+> The authentication system included in this project is designed for **development and testing purposes only**. It is **NOT suitable for production use** due to:
+> - Simple in-memory session storage (sessions lost on server restart)
+> - Basic username/password authentication without encryption
+> - Default credentials are publicly known
+> - No rate limiting or brute force protection
+> - No password complexity requirements
+> - Sessions stored in plain HTTP cookies (not encrypted)
+> 
+> **For production deployments**, implement proper authentication with:
+> - Database-backed session storage (Redis/PostgreSQL)
+> - Encrypted passwords with proper salting
+> - JWT tokens or OAuth2 integration
+> - HTTPS/SSL encryption
+> - Rate limiting and security monitoring
+> - Strong password policies
+
+### Configuration
+
+Set these variables in your `backend/.env` file:
+
+```bash
+# Enable/disable authentication (DEVELOPMENT/TESTING ONLY)
+AUTH_ENABLED=false  # Set to true to require login
+
+# Default credentials (CHANGE THESE - NOT FOR PRODUCTION!)
+AUTH_USERNAME=admin
+AUTH_PASSWORD=admin123
+```
+
+> **🔧 Development Use Only**: These credentials are intended for local development and testing. Never use these default values or this authentication system in any production environment.
+
+### Frontend Configuration
+
+For the frontend, add to `frontend/.env`:
+
+```bash
+# Tell frontend whether auth is enabled
+VITE_AUTH_ENABLED=false
+
+# Backend API URL
+VITE_API_URL=http://localhost:8082
+```
+
+### Using Authentication
+
+**When AUTH_ENABLED=false:**
+- All endpoints work without authentication
+- No login required
+
+**When AUTH_ENABLED=true:**
+- Login required for most endpoints
+- Use session cookies for subsequent requests
+
+**Login Example:**
+```bash
+# Login and save cookies
+curl -X POST "http://localhost:8082/api/auth/login" \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "admin123"}' \
+  -c cookies.txt
+
+# Use session cookie for authenticated requests
+curl -X GET "http://localhost:8082/api/models" -b cookies.txt
+
+# Logout
+curl -X POST "http://localhost:8082/api/auth/logout" -b cookies.txt
+```
 
 ## Environment Variables
 
 Copy `.env.example` to `.env` and configure:
 
-**Frontend:**
-- `VITE_API_BASE_URL` - Backend API URL
-
-**Backend:**
+**Backend (`backend/.env`):**
+- `AUTH_ENABLED` - Enable/disable authentication (true/false) - **Development only**
+- `AUTH_USERNAME` - Login username (default: admin) - **Not for production**
+- `AUTH_PASSWORD` - Login password (default: admin123) - **Not for production**
 - `API_HOST`, `API_PORT` - Server configuration
-- `DEFAULT_MODEL` - AI model to use
-- `MODELS_CACHE_DIR` - Model storage directory
+- `CORS_ORIGINS` - Allowed frontend origins
+
+**Frontend (`frontend/.env`):**
+- `VITE_AUTH_ENABLED` - Whether frontend should show login (true/false)
+- `VITE_API_URL` - Backend API URL
 
 ## Adding AI Models
 

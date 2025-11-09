@@ -1,10 +1,15 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
 import json
+from dotenv import load_dotenv
 
-from app.routes import generate, stream, models
+from app.routes import generate, stream, models, auth
+from app.core.auth import get_current_user
+
+# Load environment variables
+load_dotenv()
 
 app = FastAPI(title="Easy AI Art API", description="AI Image Generation API", version="1.0.0")
 
@@ -29,13 +34,14 @@ if os.path.exists("outputs"):
     app.mount("/images", StaticFiles(directory="outputs"), name="images")
 
 # Include routes
-app.include_router(generate.router, prefix="/api", tags=["generation"])
-app.include_router(stream.router, prefix="/api", tags=["streaming"])
-app.include_router(models.router, prefix="/api", tags=["models"])
+app.include_router(auth.router, prefix="/api/auth", tags=["authentication"])
+app.include_router(generate.router, prefix="/api", tags=["generation"], dependencies=[Depends(get_current_user)])
+app.include_router(stream.router, prefix="/api", tags=["streaming"], dependencies=[Depends(get_current_user)])
+app.include_router(models.router, prefix="/api", tags=["models"], dependencies=[Depends(get_current_user)])
 
 @app.get("/")
-async def root():
-    return {"message": "Easy AI Art API is running!"}
+async def root(current_user: str = Depends(get_current_user)):
+    return {"message": "Easy AI Art API is running!", "user": current_user}
 
 @app.get("/health")
 async def health_check():

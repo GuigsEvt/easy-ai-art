@@ -1,6 +1,9 @@
 import { useState, useCallback, useRef } from 'react';
 import { GenerationRequest, GenerationResponse } from '@/lib/api';
 
+// API configuration
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8082';
+
 export interface ProgressUpdate {
   type: 'progress' | 'complete' | 'error';
   progress: number;
@@ -85,8 +88,9 @@ const useStreamingGeneration = () => {
         console.log('=' .repeat(60));
 
         // Start the generation by making a POST request to the streaming endpoint
-        const response = await fetch('/api/generate-stream', {
+        const response = await fetch(`${API_BASE_URL}/api/generate-stream`, {
           method: 'POST',
+          credentials: 'include', // Include cookies for authentication
           headers: {
             'Content-Type': 'application/json',
           },
