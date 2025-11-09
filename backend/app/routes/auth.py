@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Request, Response, status, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from app.core.auth import authenticate_user, create_session, remove_session, AUTH_ENABLED, get_current_user
+from app.core.auth import authenticate_user, create_session, remove_session, AUTH_ENABLED, get_current_user, SESSION_DURATION_HOURS
 from typing import Optional
 
 router = APIRouter()
@@ -36,7 +36,7 @@ async def login(request: LoginRequest, response: Response):
         httponly=True,
         secure=False,  # Set to True in production with HTTPS
         samesite="lax",
-        max_age=24*60*60  # 24 hours
+        max_age=SESSION_DURATION_HOURS*60*60  # Convert hours to seconds
     )
     
     return LoginResponse(message="Login successful", authenticated=True)

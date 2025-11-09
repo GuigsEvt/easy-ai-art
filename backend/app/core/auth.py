@@ -35,6 +35,7 @@ load_dotenv()
 AUTH_ENABLED = os.getenv("AUTH_ENABLED", "false").lower() == "true"
 AUTH_USERNAME = os.getenv("AUTH_USERNAME", "admin")
 AUTH_PASSWORD = os.getenv("AUTH_PASSWORD", "admin123")
+SESSION_DURATION_HOURS = int(os.getenv("SESSION_DURATION_HOURS", "24"))
 
 # Simple session storage (in production, use Redis or database)
 active_sessions = {}
@@ -49,7 +50,7 @@ def create_session(username: str) -> str:
     active_sessions[session_token] = {
         "username": username,
         "created_at": datetime.now(),
-        "expires_at": datetime.now() + timedelta(hours=24)
+        "expires_at": datetime.now() + timedelta(hours=SESSION_DURATION_HOURS)
     }
     return session_token
 

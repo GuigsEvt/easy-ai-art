@@ -261,6 +261,9 @@ AUTH_ENABLED=false  # Set to true to require login
 # Default credentials (CHANGE THESE - NOT FOR PRODUCTION!)
 AUTH_USERNAME=admin
 AUTH_PASSWORD=admin123
+
+# Session duration in hours (how long users stay logged in)
+SESSION_DURATION_HOURS=24  # 1 day default
 ```
 
 > **🔧 Development Use Only**: These credentials are intended for local development and testing. Never use these default values or this authentication system in any production environment.
@@ -310,6 +313,7 @@ Copy `.env.example` to `.env` and configure:
 - `AUTH_ENABLED` - Enable/disable authentication (true/false) - **Development only**
 - `AUTH_USERNAME` - Login username (default: admin) - **Not for production**
 - `AUTH_PASSWORD` - Login password (default: admin123) - **Not for production**
+- `SESSION_DURATION_HOURS` - How long sessions last in hours (default: 24)
 - `API_HOST`, `API_PORT` - Server configuration
 - `CORS_ORIGINS` - Allowed frontend origins
 
