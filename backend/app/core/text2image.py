@@ -49,7 +49,7 @@ def detect_device():
     if torch.cuda.is_available():
         return "cuda", torch.float16
     if platform.system() == "Darwin" and torch.backends.mps.is_available():        
-        return "mps", torch.float32
+        return "mps", torch.float16 # Faster performances on MPS with float16
     return "cpu", torch.float32
 
 def multiple_of_8(x: int) -> int:
@@ -84,7 +84,7 @@ def build_pipe(model_path: str, sampler: str, device: str, dtype):
         print("Loading QwenImagePipeline...")
         pipe = QwenImagePipeline.from_pretrained(
             str(mp),
-            torch_dtype=dtype,
+            torch_dtype=torch.float16,  # Force float16 for Qwen models for faster performance          
             use_safetensors=True,
             local_files_only=True,
             trust_remote_code=False,
