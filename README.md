@@ -333,11 +333,6 @@ huggingface-cli download stabilityai/sdxl-turbo \
 ```
 4. Update `backend/app/core/pipeline.py` with actual model implementation
 
-## Project Info
-
-**URL**: https://lovable.dev/projects/a45a1a4c-5327-47ce-86ca-82c68bfb06e9
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
 ## What technologies are used for this project?
 
 This project is built with:
