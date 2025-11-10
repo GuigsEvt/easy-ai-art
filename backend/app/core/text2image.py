@@ -14,17 +14,21 @@ from diffusers import (
     DDIMScheduler,
     DPMSolverMultistepScheduler,
     LCMScheduler,
+    EulerDiscreteScheduler,
 )
 
 # ---------- Config ----------
-DEFAULT_MODEL_PATH = "models/sdxl-turbo"  # ou "stabilityai/sdxl-turbo"
-OUTPUT_DIR = Path("outputs")
+# Get the backend directory path
+backend_dir = Path(__file__).parent.parent.parent
+OUTPUT_DIR = backend_dir / "outputs"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 SAMPLERS = {
     "euler_a": EulerAncestralDiscreteScheduler,
+    "euler": EulerDiscreteScheduler,
     "ddim": DDIMScheduler,
     "dpmpp_2m": DPMSolverMultistepScheduler,
+    "dpmpp_2m_karras": DPMSolverMultistepScheduler,
     "lcm": LCMScheduler,
 }
 
@@ -58,7 +62,16 @@ def build_pipe(model_path: str, sampler: str, device: str, dtype):
     )
     # Remplacer le scheduler (sampler)
     if sampler in SAMPLERS:
-        pipe.scheduler = SAMPLERS[sampler].from_config(pipe.scheduler.config)
+        if sampler == "dpmpp_2m_karras":
+            # Use DPM++ 2M with Karras noise schedule
+            pipe.scheduler = DPMSolverMultistepScheduler.from_config(
+                pipe.scheduler.config,
+                use_karras_sigmas=True,
+                algorithm_type="dpmsolver++",
+                solver_order=2
+            )
+        else:
+            pipe.scheduler = SAMPLERS[sampler].from_config(pipe.scheduler.config)
 
     pipe = pipe.to(device)
 

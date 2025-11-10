@@ -18,9 +18,10 @@ class ImagePipeline:
     """
     
     def __init__(self):
-        self.models_dir = Path("models")
-        self.outputs_dir = Path("outputs")
-        self.default_model_path = "models/sdxl-turbo"
+        # Get the backend directory path (where this file is located)
+        backend_dir = Path(__file__).parent.parent.parent
+        self.models_dir = backend_dir / "models"
+        self.outputs_dir = backend_dir / "outputs"
         self.available_models = [
             "sdxl-turbo",      # Local model we have available
             "sdxl-base-1.0"    # SDXL Base model
@@ -55,6 +56,7 @@ class ImagePipeline:
         width: int = 512,
         height: int = 512,
         num_inference_steps: int = 6,
+        guidance_scale: float = 1.0,
         seed: Optional[int] = None,
         model_name: str = "sdxl-turbo",
         sampler: str = "lcm",
@@ -74,8 +76,7 @@ class ImagePipeline:
             print(f"Starting image generation with model: {model_name}")
             print(f"Prompt: {prompt}")
             
-            # Set optimal guidance scale for prompt following with SDXL-Turbo
-            guidance_scale = 7.5
+            # Use dynamic guidance scale from frontend
             print(f"Parameters: {width}x{height}, steps={num_inference_steps}, guidance={guidance_scale}, sampler={sampler}")
             
             # Clamp dimensions to multiples of 8
@@ -90,12 +91,7 @@ class ImagePipeline:
             if progress_callback:
                 progress_callback(0, steps, "Loading model")
             
-            # Load the pipeline
-            if model_name == "sdxl-turbo":
-                model_path = self.default_model_path
-            else:
-                # Construct path for other models in the models directory
-                model_path = f"models/{model_name}"
+            model_path = f"models/{model_name}"
             
             # Check if model exists
             model_index_path = os.path.join(model_path, "model_index.json")
@@ -170,6 +166,7 @@ class ImagePipeline:
         width: int = 512,
         height: int = 512,
         num_inference_steps: int = 6,
+        guidance_scale: float = 1.0,
         seed: Optional[int] = None,
         model_name: str = "sdxl-turbo",
         sampler: str = "lcm",
@@ -190,14 +187,8 @@ class ImagePipeline:
             start_time = time.time()
             print(f"Starting threaded image generation with model: {model_name}")
             print(f"Prompt: {prompt}")
-            
-            # Set optimal guidance scale for prompt following with SDXL-Turbo
-            guidance_scale = 7
-            width = 1024
-            height = 1024
-            num_inference_steps = 50
-            sampler = 'euler'
 
+            # Use dynamic values from frontend instead of hardcoded values
             print(f"Parameters: {width}x{height}, steps={num_inference_steps}, guidance={guidance_scale}, sampler={sampler}")
             
             # Clamp dimensions to multiples of 8
@@ -213,11 +204,7 @@ class ImagePipeline:
                 progress_callback(0, steps, "Loading model")
             
             # Load the pipeline
-            if model_name == "sdxl-turbo":
-                model_path = self.default_model_path
-            else:
-                # Construct path for other models in the models directory
-                model_path = f"models/{model_name}"
+            model_path = f"models/{model_name}"
             
             # Check if model exists
             model_index_path = os.path.join(model_path, "model_index.json")

@@ -30,8 +30,9 @@ app.add_middleware(
 )
 
 # Serve generated images statically
-if os.path.exists("outputs"):
-    app.mount("/images", StaticFiles(directory="outputs"), name="images")
+outputs_dir = os.path.join(os.path.dirname(__file__), "..", "outputs")
+if os.path.exists(outputs_dir):
+    app.mount("/images", StaticFiles(directory=outputs_dir), name="images")
 
 # Include routes
 app.include_router(auth.router, prefix="/api/auth", tags=["authentication"])

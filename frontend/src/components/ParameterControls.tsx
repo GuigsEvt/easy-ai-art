@@ -30,10 +30,12 @@ const ParameterControls = ({
 }: ParameterControlsProps) => {
   // Updated samplers list to match SDXL-Turbo capabilities
   const samplers = [
-    "lcm",
-    "euler_a",
-    "ddim",
-    "dpmpp_2m",
+    { value: "lcm", label: "LCM" },
+    { value: "euler", label: "Euler" },
+    { value: "euler_a", label: "Euler Ancestral" },
+    { value: "ddim", label: "DDIM" },
+    { value: "dpmpp_2m", label: "DPM++ 2M" },
+    { value: "dpmpp_2m_karras", label: "DPM++ 2M Karras" },
   ];
 
   const imageSizes = [
@@ -42,6 +44,7 @@ const ParameterControls = ({
     { label: "512×768", width: 512, height: 768 },
     { label: "1024×512", width: 1024, height: 512 },
     { label: "512×1024", width: 512, height: 1024 },
+    { label: "1024×1024", width: 1024, height: 1024 },
   ];
 
   return (
@@ -67,8 +70,8 @@ const ParameterControls = ({
             </SelectTrigger>
             <SelectContent>
               {samplers.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s.toUpperCase()}
+                <SelectItem key={s.value} value={s.value}>
+                  {s.label}
                 </SelectItem>
               ))}
             </SelectContent>
