@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
-from app.models.generation import GenerationRequest
+from app.core.generation import GenerationRequest
 from app.core.pipeline import ImagePipeline
 import logging
 import json

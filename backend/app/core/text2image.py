@@ -17,8 +17,8 @@ from diffusers import (
 )
 
 # ---------- Config ----------
-DEFAULT_MODEL_PATH = "./models/sdxl-turbo"  # ou "stabilityai/sdxl-turbo"
-OUTPUT_DIR = Path("./outputs")
+DEFAULT_MODEL_PATH = "models/sdxl-turbo"  # ou "stabilityai/sdxl-turbo"
+OUTPUT_DIR = Path("outputs")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 SAMPLERS = {

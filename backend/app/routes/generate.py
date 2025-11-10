@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from app.models.generation import GenerationRequest, GenerationResponse
+from app.core.generation import GenerationRequest, GenerationResponse
 from app.core.pipeline import ImagePipeline
 import logging
 import time

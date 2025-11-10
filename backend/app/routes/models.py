@@ -30,7 +30,7 @@ async def get_available_models():
     """
     try:
         models = []
-        models_dir = "models"  # Look in models directory at backend root
+        models_dir = "models"  # Look in models directory relative to backend root
         
         # Check if models directory exists
         if not os.path.exists(models_dir):
