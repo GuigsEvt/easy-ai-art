@@ -4,12 +4,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 
 interface ParameterControlsProps {
-  seed: string;
+  guidanceScale: number;
   steps: number;
   width: number;
   height: number;
   sampler: string;
-  onSeedChange: (value: string) => void;
+  onGuidanceScaleChange: (value: number) => void;
   onStepsChange: (value: number) => void;
   onWidthChange: (value: number) => void;
   onHeightChange: (value: number) => void;
@@ -17,12 +17,12 @@ interface ParameterControlsProps {
 }
 
 const ParameterControls = ({
-  seed,
+  guidanceScale,
   steps,
   width,
   height,
   sampler,
-  onSeedChange,
+  onGuidanceScaleChange,
   onStepsChange,
   onWidthChange,
   onHeightChange,
@@ -42,6 +42,7 @@ const ParameterControls = ({
     { label: "512×512", width: 512, height: 512 },
     { label: "768×512", width: 768, height: 512 },
     { label: "512×768", width: 512, height: 768 },
+    { label: "768×768", width: 768, height: 768 },
     { label: "1024×512", width: 1024, height: 512 },
     { label: "512×1024", width: 512, height: 1024 },
     { label: "1024×1024", width: 1024, height: 1024 },
@@ -51,15 +52,30 @@ const ParameterControls = ({
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="seed">Seed</Label>
-          <Input
-            id="seed"
-            type="text"
-            placeholder="Random (leave empty)"
-            value={seed}
-            onChange={(e) => onSeedChange(e.target.value)}
-            className="bg-secondary/50 border-border"
-          />
+          <Label htmlFor="guidance_scale">Guidance Scale</Label>
+          <div className="flex items-center space-x-4">
+            <Slider
+              id="guidance_scale"
+              min={0.5}
+              max={20}
+              step={0.1}
+              value={[guidanceScale]}
+              onValueChange={(value) => onGuidanceScaleChange(value[0])}
+              className="flex-1"
+            />
+            <Input
+              type="number"
+              value={guidanceScale}
+              onChange={(e) => onGuidanceScaleChange(parseFloat(e.target.value) || 0.5)}
+              min={0.5}
+              max={20}
+              step={0.1}
+              className="w-20 bg-secondary/50 border-border"
+            />
+          </div>
+          <div className="text-xs text-muted-foreground">
+            How closely to follow the prompt (0.5-20)
+          </div>
         </div>
 
         <div className="space-y-2">

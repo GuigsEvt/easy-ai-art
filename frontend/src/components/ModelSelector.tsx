@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertCircle, CheckCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { imageAPI, ModelInfo } from "@/lib/api";
@@ -89,48 +90,51 @@ const ModelSelector = ({ selectedModel, onModelChange }: ModelSelectorProps) => 
           <Badge variant="secondary">{models.length} model{models.length !== 1 ? 's' : ''}</Badge>
         </div>
         
-        <div className="grid gap-3">
-          {models.map((model) => (
-            <div
-              key={model.name}
-              className={`
-                p-4 rounded-lg border cursor-pointer transition-all duration-200
-                ${selectedModel === model.name 
-                  ? 'border-primary bg-primary/5 shadow-sm' 
-                  : 'border-border hover:border-primary/50 hover:bg-secondary/50'
-                }
-              `}
-              onClick={() => handleModelSelect(model.name)}
-            >
-              <div className="flex items-start justify-between">
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{model.name}</span>
-                    {selectedModel === model.name && (
-                      <CheckCircle className="h-4 w-4 text-primary" />
+        {/* Scrollable models container - shows ~1.5 models */}
+        <ScrollArea className="h-[240px]">
+          <div className="grid gap-3 pr-4">
+            {models.map((model) => (
+              <div
+                key={model.name}
+                className={`
+                  p-4 rounded-lg border cursor-pointer transition-all duration-200
+                  ${selectedModel === model.name 
+                    ? 'border-primary bg-primary/5 shadow-sm' 
+                    : 'border-border hover:border-primary/50 hover:bg-secondary/50'
+                  }
+                `}
+                onClick={() => handleModelSelect(model.name)}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{model.name}</span>
+                      {selectedModel === model.name && (
+                        <CheckCircle className="h-4 w-4 text-primary" />
+                      )}
+                    </div>
+                    
+                    {model.pipeline_class && (
+                      <Badge variant="outline" className="text-xs">
+                        {model.pipeline_class}
+                      </Badge>
+                    )}
+                    
+                    {model.description && (
+                      <p className="text-sm text-muted-foreground line-clamp-2">
+                        {model.description}
+                      </p>
                     )}
                   </div>
                   
-                  {model.pipeline_class && (
-                    <Badge variant="outline" className="text-xs">
-                      {model.pipeline_class}
-                    </Badge>
-                  )}
-                  
-                  {model.description && (
-                    <p className="text-sm text-muted-foreground line-clamp-2">
-                      {model.description}
-                    </p>
-                  )}
+                  <Badge variant={model.type === 'diffusers' ? 'default' : 'secondary'}>
+                    {model.type}
+                  </Badge>
                 </div>
-                
-                <Badge variant={model.type === 'diffusers' ? 'default' : 'secondary'}>
-                  {model.type}
-                </Badge>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </ScrollArea>
         
         <div className="text-xs text-muted-foreground">
           Click on a model to select it for image generation

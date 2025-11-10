@@ -24,7 +24,8 @@ class ImagePipeline:
         self.outputs_dir = backend_dir / "outputs"
         self.available_models = [
             "sdxl-turbo",      # Local model we have available
-            "sdxl-base-1.0"    # SDXL Base model
+            "sdxl-base-1.0",   # SDXL Base model
+            "qwen-image"       # Qwen Image model
         ]
         self._ensure_directories()
         self._device = None

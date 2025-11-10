@@ -9,6 +9,7 @@ import ModelSelector from "@/components/ModelSelector";
 import ParameterControls from "@/components/ParameterControls";
 import ImageDisplay from "@/components/ImageDisplay";
 import GenerationProgress from "@/components/GenerationProgress";
+import GuidancePopup from "@/components/GuidancePopup";
 import { imageAPI } from "@/lib/api";
 import useStreamingGeneration from "@/hooks/use-streaming-generation";
 
@@ -20,7 +21,7 @@ const Index = () => {
   const [selectedModel, setSelectedModel] = useState<string>("sdxl-turbo");
   const [prompt, setPrompt] = useState("");
   const [negativePrompt, setNegativePrompt] = useState("");
-  const [seed, setSeed] = useState("");
+  const [guidanceScale, setGuidanceScale] = useState(1.0);
   const [steps, setSteps] = useState(6); // Default for SDXL-Turbo
   const [width, setWidth] = useState(512);
   const [height, setHeight] = useState(512);
@@ -81,8 +82,7 @@ const Index = () => {
       width,
       height,
       num_inference_steps: steps,
-      guidance_scale: selectedModel === 'sdxl-base-1.0' ? 7.5 : 1.0, // Auto-adjust based on model
-      seed: seed ? parseInt(seed) : undefined,
+      guidance_scale: guidanceScale,
       model_name: selectedModel,
       sampler: sampler,
     };
@@ -132,11 +132,27 @@ const Index = () => {
     }
   };
 
+  // Handle applying defaults from guidance popup
+  const handleApplyDefaults = (modelName: string, defaults: { guidance_scale: number; steps: number; width: number; height: number; sampler: string }) => {
+    setSelectedModel(modelName);
+    setGuidanceScale(defaults.guidance_scale);
+    setSteps(defaults.steps);
+    setWidth(defaults.width);
+    setHeight(defaults.height);
+    setSampler(defaults.sampler);
+    toast.success(`Applied defaults for ${modelName.replace('-', ' ')}`);
+  };
+
   return (
     <div className="min-h-screen p-4 md:p-8">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
-        <div className="text-center space-y-4">
+        <div className="text-center space-y-4 relative">
+          {/* Guidance Popup Button - Top Right */}
+          <div className="absolute top-0 right-0">
+            <GuidancePopup onApplyDefaults={handleApplyDefaults} />
+          </div>
+          
           <div className="flex items-center justify-center gap-3">
             <Sparkles className="h-8 w-8 text-primary" />
             <h1 className="text-4xl md:text-5xl font-bold bg-gradient-primary bg-clip-text text-transparent">
@@ -185,12 +201,12 @@ const Index = () => {
                 </div>
 
                 <ParameterControls
-                  seed={seed}
+                  guidanceScale={guidanceScale}
                   steps={steps}
                   width={width}
                   height={height}
                   sampler={sampler}
-                  onSeedChange={setSeed}
+                  onGuidanceScaleChange={setGuidanceScale}
                   onStepsChange={setSteps}
                   onWidthChange={setWidth}
                   onHeightChange={setHeight}
