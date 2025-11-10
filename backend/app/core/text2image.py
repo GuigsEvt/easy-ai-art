@@ -3,6 +3,7 @@ import argparse
 import os
 import platform
 import time
+import json
 from pathlib import Path
 from typing import Literal
 
@@ -17,11 +18,22 @@ from diffusers import (
     EulerDiscreteScheduler,
 )
 
+# Try to import QwenImagePipeline - it might not be available in all diffusers versions
+try:
+    from diffusers import QwenImagePipeline
+    QWEN_AVAILABLE = True
+except ImportError:
+    QWEN_AVAILABLE = False
+    print("Warning: QwenImagePipeline not available in this diffusers version")
+
 # ---------- Config ----------
 # Get the backend directory path
 backend_dir = Path(__file__).parent.parent.parent
 OUTPUT_DIR = backend_dir / "outputs"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+# Default model path (relative to backend directory)
+DEFAULT_MODEL_PATH = "./backend/models/sdxl-turbo"
 
 SAMPLERS = {
     "euler_a": EulerAncestralDiscreteScheduler,
@@ -44,34 +56,65 @@ def multiple_of_8(x: int) -> int:
     return max(256, (x // 8) * 8)
 
 def build_pipe(model_path: str, sampler: str, device: str, dtype):
-     # ensure it's a real local directory with a model_index.json
+    # ensure it's a real local directory with a model_index.json
     mp = Path(model_path)
     idx = mp / "model_index.json"
     if not idx.exists():
         raise FileNotFoundError(f"model_index.json not found at: {idx.resolve()}")
 
+    # Check if this is a Qwen model by examining model_index.json
+    is_qwen_model = False
+    try:
+        with open(idx, 'r') as f:
+            model_config = json.load(f)
+            if model_config.get("_class_name") == "QwenImagePipeline":
+                is_qwen_model = True
+                print(f"Detected Qwen model at {mp}")
+    except Exception as e:
+        print(f"Warning: Could not read model_index.json: {e}")
+
     # offline / local only
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
 
-    pipe = AutoPipelineForText2Image.from_pretrained(
-        str(mp),
-        torch_dtype=dtype,
-        use_safetensors=True,
-        local_files_only=True,
-        trust_remote_code=False,
-    )
-    # Remplacer le scheduler (sampler)
-    if sampler in SAMPLERS:
-        if sampler == "dpmpp_2m_karras":
-            # Use DPM++ 2M with Karras noise schedule
-            pipe.scheduler = DPMSolverMultistepScheduler.from_config(
-                pipe.scheduler.config,
-                use_karras_sigmas=True,
-                algorithm_type="dpmsolver++",
-                solver_order=2
-            )
-        else:
-            pipe.scheduler = SAMPLERS[sampler].from_config(pipe.scheduler.config)
+    # Load the appropriate pipeline based on model type
+    if is_qwen_model:
+        if not QWEN_AVAILABLE:
+            raise ImportError("QwenImagePipeline is required but not available. Please update diffusers: pip install diffusers>=0.34.0")
+        
+        print("Loading QwenImagePipeline...")
+        pipe = QwenImagePipeline.from_pretrained(
+            str(mp),
+            torch_dtype=dtype,
+            use_safetensors=True,
+            local_files_only=True,
+            trust_remote_code=False,
+        )
+        
+        # Qwen uses different scheduler handling, skip custom scheduler for now
+        print("Note: Custom scheduler selection not supported for Qwen models yet")
+        
+    else:
+        # Standard SDXL/diffusion model
+        pipe = AutoPipelineForText2Image.from_pretrained(
+            str(mp),
+            torch_dtype=dtype,
+            use_safetensors=True,
+            local_files_only=True,
+            trust_remote_code=False,
+        )
+        
+        # Replace the scheduler (sampler) for non-Qwen models
+        if sampler in SAMPLERS:
+            if sampler == "dpmpp_2m_karras":
+                # Use DPM++ 2M with Karras noise schedule
+                pipe.scheduler = DPMSolverMultistepScheduler.from_config(
+                    pipe.scheduler.config,
+                    use_karras_sigmas=True,
+                    algorithm_type="dpmsolver++",
+                    solver_order=2
+                )
+            else:
+                pipe.scheduler = SAMPLERS[sampler].from_config(pipe.scheduler.config)
 
     pipe = pipe.to(device)
 
