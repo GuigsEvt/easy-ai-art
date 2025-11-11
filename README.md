@@ -64,8 +64,7 @@ npm run dev
 ```bash
 cd backend
 
-# 0) (optional) recreate venv if things are messy
-# python3 -m venv .venv && source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate
 
 pip install --upgrade pip setuptools wheel
 
@@ -76,7 +75,7 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 pip install -r requirements.txt
 
 # Start the backend server
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8082
 # Backend runs on http://localhost:8000
 ```
 
