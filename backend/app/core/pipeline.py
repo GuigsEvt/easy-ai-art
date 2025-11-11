@@ -136,17 +136,38 @@ class ImagePipeline:
                     "width": w,
                     "height": h,
                     "generator": generator,
-                    "callback": diffusion_callback,
-                    "callback_steps": 1,  # Call callback after each step
                 }
                 
-                # Use different guidance parameter for Qwen models
+                # Conditional guidance (use appropriate parameter for each model type)
                 if self._is_qwen_model(model_name):
-                    generation_args["true_cfg_scale"] = 4.0
-                    print(f"Using Qwen model with true_cfg_scale=4.0")
+                    generation_args["true_cfg_scale"] = guidance_scale  # Use the original guidance_scale value for Qwen
+                    print(f"Using Qwen model with true_cfg_scale={guidance_scale}")
                 else:
                     generation_args["guidance_scale"] = guidance
                     print(f"Using standard model with guidance_scale={guidance}")
+                
+                # Conditional callback setup
+                if progress_callback:  # Only add if callback is needed
+                    current_step = [0]  # Mutable for closure
+
+                    def progress_wrapper(step_idx, timestep, callback_kwargs=None):
+                        """Unified wrapper to adapt callback signatures."""
+                        current_step[0] = step_idx + 1  # step_idx starts at 0
+                        stage_msg = f"Generating (step {current_step[0]}/{steps})"
+                        progress_callback(current_step[0], steps, stage_msg)
+
+                    if self._is_qwen_model(model_name):
+                        # Qwen: Use callback_on_step_end (newer API)
+                        generation_args["callback_on_step_end"] = progress_wrapper
+                        generation_args["callback_on_step_end_tensor_inputs"] = ["latents"]  # Optional: passes latents if needed
+                    else:
+                        # SDXL/etc.: Use legacy callback
+                        def legacy_callback(step, timestep, latents):
+                            current_step[0] = step + 1
+                            progress_callback(current_step[0], steps, f"Generating (step {current_step[0]}/{steps})")
+
+                        generation_args["callback"] = legacy_callback
+                        generation_args["callback_steps"] = 1
                 
                 return pipe(**generation_args)
             
@@ -250,17 +271,44 @@ class ImagePipeline:
                 "width": w,
                 "height": h,
                 "generator": generator,
-                "callback": diffusion_callback if diffusion_callback else None,
-                "callback_steps": 1 if diffusion_callback else None,
             }
             
-            # Use different guidance parameter for Qwen models
+            # Conditional guidance (use appropriate parameter for each model type)
             if self._is_qwen_model(model_name):
-                generation_args["true_cfg_scale"] = 4.0
-                print(f"Using Qwen model with true_cfg_scale=4.0")
+                generation_args["true_cfg_scale"] = guidance_scale  # Use the original guidance_scale value for Qwen
+                print(f"Using Qwen model with true_cfg_scale={guidance_scale}")
             else:
                 generation_args["guidance_scale"] = guidance
                 print(f"Using standard model with guidance_scale={guidance}")
+            
+            # Conditional callback setup
+            if progress_callback or diffusion_callback:  # Only add if callback is needed
+                current_step = [0]  # Mutable for closure
+
+                def progress_wrapper(step_idx, timestep, callback_kwargs=None):
+                    """Unified wrapper to adapt callback signatures."""
+                    current_step[0] = step_idx + 1  # step_idx starts at 0
+                    stage_msg = f"Generating (step {current_step[0]}/{steps})"
+                    if progress_callback:
+                        progress_callback(current_step[0], steps, stage_msg)
+                    if diffusion_callback:
+                        diffusion_callback(step_idx, timestep, callback_kwargs)
+
+                if self._is_qwen_model(model_name):
+                    # Qwen: Use callback_on_step_end (newer API)
+                    generation_args["callback_on_step_end"] = progress_wrapper
+                    generation_args["callback_on_step_end_tensor_inputs"] = ["latents"]  # Optional: passes latents if needed
+                else:
+                    # SDXL/etc.: Use legacy callback
+                    def legacy_callback(step, timestep, latents):
+                        current_step[0] = step + 1
+                        if progress_callback:
+                            progress_callback(current_step[0], steps, f"Generating (step {current_step[0]}/{steps})")
+                        if diffusion_callback:
+                            diffusion_callback(step, timestep, latents)
+
+                    generation_args["callback"] = legacy_callback
+                    generation_args["callback_steps"] = 1
                 
             result = pipe(**generation_args)
             
