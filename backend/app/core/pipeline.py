@@ -43,6 +43,10 @@ class ImagePipeline:
             self._device, self._dtype = detect_device()
         return self._device, self._dtype
     
+    def _is_qwen_model(self, model_name: str) -> bool:
+        """Check if the model is a Qwen model based on model name"""
+        return model_name.lower() in ["qwen-image", "qwen"]
+    
     def _load_pipeline(self, model_path: str, sampler: str = "lcm"):
         """Load the diffusion pipeline"""
         if self._pipe is None:
@@ -124,17 +128,27 @@ class ImagePipeline:
             
             # Run generation in executor to avoid blocking
             def _generate():
-                return pipe(
-                    prompt=prompt,
-                    negative_prompt=negative_prompt or None,
-                    num_inference_steps=steps,
-                    guidance_scale=guidance,
-                    width=w,
-                    height=h,
-                    generator=generator,
-                    callback=diffusion_callback,
-                    callback_steps=1,  # Call callback after each step
-                )
+                # Prepare generation arguments based on model type
+                generation_args = {
+                    "prompt": prompt,
+                    "negative_prompt": negative_prompt or None,
+                    "num_inference_steps": steps,
+                    "width": w,
+                    "height": h,
+                    "generator": generator,
+                    "callback": diffusion_callback,
+                    "callback_steps": 1,  # Call callback after each step
+                }
+                
+                # Use different guidance parameter for Qwen models
+                if self._is_qwen_model(model_name):
+                    generation_args["true_cfg_scale"] = 4.0
+                    print(f"Using Qwen model with true_cfg_scale=4.0")
+                else:
+                    generation_args["guidance_scale"] = guidance
+                    print(f"Using standard model with guidance_scale={guidance}")
+                
+                return pipe(**generation_args)
             
             # Execute generation asynchronously
             loop = asyncio.get_event_loop()
@@ -146,7 +160,7 @@ class ImagePipeline:
             
             # Save the generated image
             img = result.images[0]
-            output_path = save_image(img, prefix="sdxl_turbo")
+            output_path = save_image(img, model_name=model_name, sampler=sampler)
             
             # Final completion callback
             if progress_callback:
@@ -228,17 +242,27 @@ class ImagePipeline:
                     generator = torch.Generator(device="cpu").manual_seed(seed)
             
             # Run generation synchronously in this thread
-            result = pipe(
-                prompt=prompt,
-                negative_prompt=negative_prompt or None,
-                num_inference_steps=steps,
-                guidance_scale=guidance,
-                width=w,
-                height=h,
-                generator=generator,
-                callback=diffusion_callback if diffusion_callback else None,
-                callback_steps=1 if diffusion_callback else None,
-            )
+            # Prepare generation arguments based on model type
+            generation_args = {
+                "prompt": prompt,
+                "negative_prompt": negative_prompt or None,
+                "num_inference_steps": steps,
+                "width": w,
+                "height": h,
+                "generator": generator,
+                "callback": diffusion_callback if diffusion_callback else None,
+                "callback_steps": 1 if diffusion_callback else None,
+            }
+            
+            # Use different guidance parameter for Qwen models
+            if self._is_qwen_model(model_name):
+                generation_args["true_cfg_scale"] = 4.0
+                print(f"Using Qwen model with true_cfg_scale=4.0")
+            else:
+                generation_args["guidance_scale"] = guidance
+                print(f"Using standard model with guidance_scale={guidance}")
+                
+            result = pipe(**generation_args)
             
             # Progress callback for post-processing
             if progress_callback:
@@ -246,7 +270,7 @@ class ImagePipeline:
             
             # Save the generated image
             img = result.images[0]
-            output_path = save_image(img, prefix="sdxl_turbo")
+            output_path = save_image(img, model_name=model_name, sampler=sampler)
             
             # Final completion callback
             if progress_callback:

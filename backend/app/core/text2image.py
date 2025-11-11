@@ -49,7 +49,7 @@ def detect_device():
     if torch.cuda.is_available():
         return "cuda", torch.float16
     if platform.system() == "Darwin" and torch.backends.mps.is_available():        
-        return "mps", torch.float16 # Faster performances on MPS with float16
+        return "mps", torch.float32
     return "cpu", torch.float32
 
 def multiple_of_8(x: int) -> int:
@@ -123,9 +123,11 @@ def build_pipe(model_path: str, sampler: str, device: str, dtype):
     pipe.enable_vae_slicing()
     return pipe
 
-def save_image(img: Image.Image, prefix: str = "sdxl_turbo") -> Path:
+def save_image(img: Image.Image, model_name: str = "sdxl", sampler: str = "turbo") -> Path:
     ts = int(time.time() * 1000)
-    out_path = OUTPUT_DIR / f"{prefix}_{ts}.png"
+    # Clean up model name for filename (remove any path separators)
+    clean_model_name = model_name.replace("/", "_").replace("\\", "_")
+    out_path = OUTPUT_DIR / f"{clean_model_name}_{sampler}_{ts}.png"
     img.save(out_path)
     return out_path
 
@@ -185,7 +187,9 @@ def main():
         raise SystemExit(f"Generation failed: {e}")
 
     img = out.images[0]
-    out_path = save_image(img, prefix="sdxl_turbo")
+    # Extract model name from path for filename
+    model_name_for_file = os.path.basename(args.model) if args.model else "sdxl"
+    out_path = save_image(img, model_name=model_name_for_file, sampler=args.sampler)
     print(f"[OK] saved → {out_path}")
 
 if __name__ == "__main__":
