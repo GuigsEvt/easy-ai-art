@@ -83,8 +83,8 @@ def build_pipe(model_path: str, sampler: str, device: str, dtype):
         
         print("Loading QwenImagePipeline...")
         pipe = QwenImagePipeline.from_pretrained(
-            str(mp),
-            torch_dtype=torch.float16,  # Force float16 for Qwen models for faster performance          
+            str(mp),            
+            torch_dtype=torch.float32,
             use_safetensors=True,
             local_files_only=True,
             trust_remote_code=False,
