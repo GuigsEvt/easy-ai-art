@@ -14,10 +14,24 @@ export default defineConfig(({ mode }) => {
   // Check VITE_PORT first, then PORT, then default to 8080
   const port = parseInt(env.VITE_PORT || env.PORT || '8080', 10);
   
+  // Use environment variable for host, fallback to "::" (all interfaces)
+  const host = env.VITE_HOST || env.HOST || "::";
+  
+  // Parse allowed hosts from environment variable (comma-separated list)
+  const allowedHosts = env.VITE_ALLOWED_HOSTS 
+    ? env.VITE_ALLOWED_HOSTS.split(',').map(h => h.trim())
+    : undefined;
+  
+  console.log(`Starting frontend on host: ${host}, port: ${port}`);
+  if (allowedHosts) {
+    console.log(`Allowed hosts: ${allowedHosts.join(', ')}`);
+  }
+  
   return {
     server: {
-      host: "::",
+      host: host,
       port: port,
+      ...(allowedHosts && { allowedHosts }),
       proxy: {
         '/api': {
           target: apiUrl,
