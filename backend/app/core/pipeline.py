@@ -150,8 +150,10 @@ class ImagePipeline:
                 if progress_callback:  # Only add if callback is needed
                     current_step = [0]  # Mutable for closure
 
-                    def progress_wrapper(step_idx, timestep, callback_kwargs=None):
+                    def progress_wrapper(*args, **kwargs):
                         """Unified wrapper to adapt callback signatures."""
+                        # Handle different argument patterns from diffusion libraries
+                        step_idx = args[0] if len(args) > 0 else 0
                         current_step[0] = step_idx + 1  # step_idx starts at 0
                         stage_msg = f"Generating (step {current_step[0]}/{steps})"
                         progress_callback(current_step[0], steps, stage_msg)
@@ -285,14 +287,32 @@ class ImagePipeline:
             if progress_callback or diffusion_callback:  # Only add if callback is needed
                 current_step = [0]  # Mutable for closure
 
-                def progress_wrapper(step_idx, timestep, callback_kwargs=None):
+                def progress_wrapper(*args, **kwargs):
                     """Unified wrapper to adapt callback signatures."""
+                    # Handle different argument patterns from diffusion libraries
+                    step_idx = args[0] if len(args) > 0 else 0
+                    timestep = args[1] if len(args) > 1 else None
+                    callback_kwargs = args[2] if len(args) > 2 else kwargs.get('callback_kwargs', None)
+                    latents = args[3] if len(args) > 3 else kwargs.get('latents', None)
+                    
                     current_step[0] = step_idx + 1  # step_idx starts at 0
                     stage_msg = f"Generating (step {current_step[0]}/{steps})"
                     if progress_callback:
                         progress_callback(current_step[0], steps, stage_msg)
                     if diffusion_callback:
-                        diffusion_callback(step_idx, timestep, callback_kwargs)
+                        # Try to call with the expected signature (step, timestep, latents)
+                        try:
+                            if latents is not None:
+                                diffusion_callback(step_idx, timestep, latents)
+                            else:
+                                diffusion_callback(step_idx, timestep, callback_kwargs)
+                        except TypeError:
+                            # Fallback to just step_idx and timestep
+                            try:
+                                diffusion_callback(step_idx, timestep)
+                            except TypeError:
+                                # Last fallback - just step_idx
+                                diffusion_callback(step_idx)
 
                 if self._is_qwen_model(model_name):
                     # Qwen: Use callback_on_step_end (newer API)
