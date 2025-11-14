@@ -153,7 +153,35 @@ class ImagePipeline:
                     def progress_wrapper(*args, **kwargs):
                         """Unified wrapper to adapt callback signatures."""
                         # Handle different argument patterns from diffusion libraries
-                        step_idx = args[0] if len(args) > 0 else 0
+                        print(f"DEBUG: async progress_wrapper called with args: {[type(arg).__name__ for arg in args]}")
+                        
+                        # Extract step index safely - different models pass different signatures
+                        step_idx = 0
+                        timestep = None
+                        
+                        # Check if first argument is an integer (step index)
+                        if len(args) > 0 and isinstance(args[0], int):
+                            step_idx = args[0]
+                            timestep = args[1] if len(args) > 1 else None
+                        elif 'step' in kwargs:
+                            # Try to get step from kwargs
+                            step_idx = kwargs.get('step', 0)
+                            timestep = kwargs.get('timestep', None)
+                        else:
+                            # Fallback: look for any integer in the args
+                            for arg in args:
+                                if isinstance(arg, int):
+                                    step_idx = arg
+                                    break
+                            if step_idx == 0:
+                                # Use internal step counter as fallback
+                                current_step[0] += 1
+                                step_idx = current_step[0] - 1
+                        
+                        # Ensure step_idx is valid
+                        if not isinstance(step_idx, int):
+                            step_idx = current_step[0]
+                        
                         current_step[0] = step_idx + 1  # step_idx starts at 0
                         stage_msg = f"Generating (step {current_step[0]}/{steps})"
                         progress_callback(current_step[0], steps, stage_msg)
@@ -290,10 +318,42 @@ class ImagePipeline:
                 def progress_wrapper(*args, **kwargs):
                     """Unified wrapper to adapt callback signatures."""
                     # Handle different argument patterns from diffusion libraries
-                    step_idx = args[0] if len(args) > 0 else 0
-                    timestep = args[1] if len(args) > 1 else None
-                    callback_kwargs = args[2] if len(args) > 2 else kwargs.get('callback_kwargs', None)
-                    latents = args[3] if len(args) > 3 else kwargs.get('latents', None)
+                    # For debugging - log what we're actually receiving
+                    print(f"DEBUG: progress_wrapper called with args: {[type(arg).__name__ for arg in args]}")
+                    
+                    # Extract step index safely - different models pass different signatures
+                    step_idx = 0
+                    timestep = None
+                    callback_kwargs = None
+                    latents = None
+                    
+                    # Check if first argument is an integer (step index)
+                    if len(args) > 0 and isinstance(args[0], int):
+                        step_idx = args[0]
+                        timestep = args[1] if len(args) > 1 else None
+                        callback_kwargs = args[2] if len(args) > 2 else kwargs.get('callback_kwargs', None)
+                        latents = args[3] if len(args) > 3 else kwargs.get('latents', None)
+                    elif 'step' in kwargs:
+                        # Try to get step from kwargs
+                        step_idx = kwargs.get('step', 0)
+                        timestep = kwargs.get('timestep', None)
+                        callback_kwargs = kwargs.get('callback_kwargs', None)
+                        latents = kwargs.get('latents', None)
+                    else:
+                        # Fallback: assume we're being called in an unexpected way
+                        # Look for any integer in the args or use current_step counter
+                        for arg in args:
+                            if isinstance(arg, int):
+                                step_idx = arg
+                                break
+                        if step_idx == 0:
+                            # Use internal step counter as fallback
+                            current_step[0] += 1
+                            step_idx = current_step[0] - 1
+                    
+                    # Ensure step_idx is valid
+                    if not isinstance(step_idx, int):
+                        step_idx = current_step[0]
                     
                     current_step[0] = step_idx + 1  # step_idx starts at 0
                     stage_msg = f"Generating (step {current_step[0]}/{steps})"
