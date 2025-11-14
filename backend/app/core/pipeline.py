@@ -68,8 +68,16 @@ class ImagePipeline:
             if len(args) >= 2 and hasattr(args[0], "transformer"):   # rough pipeline check
                 pipeline, step_idx = args[0], args[1]
                 callback_kwargs = args[2] if len(args) > 2 else kwargs.get("callback_kwargs", {})
-                latents = callback_kwargs.get("latents")
-                timestep = callback_kwargs.get("timestep")
+                
+                # Safely extract values from callback_kwargs - it should be a dict
+                latents = None
+                timestep = None
+                if isinstance(callback_kwargs, dict):
+                    latents = callback_kwargs.get("latents")
+                    timestep = callback_kwargs.get("timestep")
+                else:
+                    # If callback_kwargs is not a dict, reset it to empty dict
+                    callback_kwargs = {}
 
             # ---------- SDXL / legacy: (step, timestep, latents) ----------
             elif len(args) >= 1 and isinstance(args[0], int):
