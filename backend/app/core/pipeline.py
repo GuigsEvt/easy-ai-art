@@ -178,7 +178,7 @@ class ImagePipeline:
                 wrapper = self._make_progress_wrapper(steps, progress_callback)
                 if self._is_qwen_model(model_name):
                     gen_args["callback_on_step_end"] = wrapper
-                    gen_args["callback_on_step_end_tensor_inputs"] = ["latents"]
+                    # gen_args["callback_on_step_end_tensor_inputs"] = ["latents"]
                 else:
                     # legacy signature – wrapper still works
                     gen_args["callback"] = wrapper
@@ -264,7 +264,7 @@ class ImagePipeline:
             wrapper = self._make_progress_wrapper(steps, progress_callback, diffusion_callback)
             if self._is_qwen_model(model_name):
                 gen_args["callback_on_step_end"] = wrapper
-                gen_args["callback_on_step_end_tensor_inputs"] = ["latents"]
+                # gen_args["callback_on_step_end_tensor_inputs"] = ["latents"]
             else:
                 gen_args["callback"] = wrapper
                 gen_args["callback_steps"] = 1
