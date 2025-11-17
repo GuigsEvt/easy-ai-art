@@ -16,6 +16,7 @@ from diffusers import (
     DPMSolverMultistepScheduler,
     LCMScheduler,
     EulerDiscreteScheduler,
+    FlowMatchEulerDiscreteScheduler
 )
 
 # Try to import QwenImagePipeline - it might not be available in all diffusers versions
@@ -89,6 +90,7 @@ def build_pipe(model_path: str, sampler: str, device: str, dtype):
             local_files_only=True,
             trust_remote_code=False,
         )
+        pipe.scheduler = FlowMatchEulerDiscreteScheduler.from_config(pipe.scheduler.config)
         
         # Qwen uses different scheduler handling, skip custom scheduler for now
         print("Note: Custom scheduler selection not supported for Qwen models yet")
