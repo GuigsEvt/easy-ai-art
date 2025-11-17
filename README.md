@@ -322,15 +322,74 @@ Copy `.env.example` to `.env` and configure:
 
 ## Adding AI Models
 
+The application now includes intelligent model detection that automatically categorizes models based on their capabilities (Text-to-Image, Image-to-Image, Inpainting, etc.).
+
+### Prerequisites
+
 1. Uncomment AI dependencies in `backend/requirements.txt`
-2. Install: `pip install torch diffusers transformers`
-3. Download models using Hugging Face CLI:
+2. Install dependencies: `pip install torch diffusers transformers`
+
+### Adding Text-to-Image Models
+
+For text-to-image generation, you can add models like SDXL-Turbo, SDXL-Base, or Qwen-Image:
+
 ```bash
+# Example: SDXL-Turbo (fast generation)
 huggingface-cli download stabilityai/sdxl-turbo \
   --local-dir ./backend/models/sdxl-turbo \
   --local-dir-use-symlinks False
+
+# Example: SDXL-Base (high quality)
+huggingface-cli download stabilityai/stable-diffusion-xl-base-1.0 \
+  --local-dir ./backend/models/sdxl-base-1.0 \
+  --local-dir-use-symlinks False
+
+# Example: Qwen-Image (advanced text rendering)
+huggingface-cli download Qwen/Qwen-Image \
+  --local-dir ./backend/models/qwen-image \
+  --local-dir-use-symlinks False
 ```
-4. Update `backend/app/core/pipeline.py` with actual model implementation
+
+### Adding Image-to-Image Models
+
+For image-to-image generation, you can add specialized models or refiners:
+
+```bash
+# Example: SDXL Refiner (improves existing images)
+huggingface-cli download stabilityai/stable-diffusion-xl-refiner-1.0 \
+  --local-dir ./backend/models/stable-diffusion-xl-refiner-1.0 \
+  --local-dir-use-symlinks False
+
+# Example: Any Img2Img specialized model
+huggingface-cli download runwayml/stable-diffusion-inpainting \
+  --local-dir ./backend/models/stable-diffusion-inpainting \
+  --local-dir-use-symlinks False
+```
+
+### How Model Detection Works
+
+The application automatically detects model capabilities by analyzing the `model_index.json` file in each model directory:
+
+- **Text-to-Image Models**: Models with `StableDiffusionXLPipeline`, `QwenImagePipeline`, or similar classes
+- **Image-to-Image Models**: Models with `StableDiffusionXLImg2ImgPipeline`, inpainting pipelines, etc.
+- **Automatic Filtering**: The frontend shows only relevant models based on the selected generation mode
+
+### Model Categories Supported
+
+- **Text-to-Image**: Standard text-to-image generation
+- **Image-to-Image (Img2Img)**: Modify existing images based on prompts
+- **Inpainting**: Fill in missing or masked areas of images
+- **Depth-to-Image**: Generate images based on depth maps
+- **Qwen-Image**: Advanced text rendering and image generation
+- **FLUX.1**: High-quality diffusion models
+
+### No Code Changes Required
+
+Once you download a model using the commands above, the application will:
+1. Automatically detect the model type
+2. Show it in the appropriate mode (Text-to-Image or Image-to-Image)
+3. Apply optimal default parameters for that model type
+4. Handle model switching when changing generation modes
 
 ## What technologies are used for this project?
 
