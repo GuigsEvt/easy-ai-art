@@ -11,6 +11,7 @@ import torch
 from PIL import Image
 from diffusers import (
     AutoPipelineForText2Image,
+    AutoPipelineForImage2Image,
     EulerAncestralDiscreteScheduler,
     DDIMScheduler,
     DPMSolverMultistepScheduler,
@@ -128,6 +129,42 @@ def build_pipe(model_path: str, sampler: str, device: str, dtype):
     pipe = pipe.to(device)
 
     # Petites optimisations mémoire pour MPS/CPU
+    pipe.enable_attention_slicing()
+    pipe.enable_vae_slicing()
+    return pipe
+
+def build_img2img_pipe(model_path: str, sampler: str, device: str, dtype):
+    """Build image-to-image pipeline"""
+    mp = Path(model_path)
+    idx = mp / "model_index.json"
+    if not idx.exists():
+        raise FileNotFoundError(f"model_index.json not found at: {idx.resolve()}")
+
+    # offline / local only
+    os.environ.setdefault("HF_HUB_OFFLINE", "1")
+
+    # Load img2img pipeline
+    pipe = AutoPipelineForImage2Image.from_pretrained(
+        str(mp),
+        torch_dtype=dtype,
+        use_safetensors=True,
+        local_files_only=True,
+        trust_remote_code=False,
+    )
+    
+    # Replace the scheduler (sampler)
+    if sampler in SAMPLERS:
+        if sampler == "dpmpp_2m_karras":
+            pipe.scheduler = DPMSolverMultistepScheduler.from_config(
+                pipe.scheduler.config,
+                use_karras_sigmas=True,
+                algorithm_type="dpmsolver++",
+                solver_order=2
+            )
+        else:
+            pipe.scheduler = SAMPLERS[sampler].from_config(pipe.scheduler.config)
+
+    pipe = pipe.to(device)
     pipe.enable_attention_slicing()
     pipe.enable_vae_slicing()
     return pipe

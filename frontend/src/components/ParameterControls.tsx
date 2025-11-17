@@ -9,11 +9,14 @@ interface ParameterControlsProps {
   width: number;
   height: number;
   sampler: string;
+  strength?: number; // Optional for img2img
+  mode?: "text-to-image" | "image-to-image"; // To show/hide relevant controls
   onGuidanceScaleChange: (value: number) => void;
   onStepsChange: (value: number) => void;
   onWidthChange: (value: number) => void;
   onHeightChange: (value: number) => void;
   onSamplerChange: (value: string) => void;
+  onStrengthChange?: (value: number) => void; // Optional for img2img
 }
 
 const ParameterControls = ({
@@ -22,11 +25,14 @@ const ParameterControls = ({
   width,
   height,
   sampler,
+  strength = 0.75,
+  mode = "text-to-image",
   onGuidanceScaleChange,
   onStepsChange,
   onWidthChange,
   onHeightChange,
   onSamplerChange,
+  onStrengthChange,
 }: ParameterControlsProps) => {
   // Updated samplers list to match SDXL-Turbo capabilities
   const samplers = [
@@ -139,6 +145,28 @@ const ParameterControls = ({
           Recommended: 4-8 for SDXL-Turbo, 20-50 for SDXL-Base
         </div>
       </div>
+
+      {/* Strength parameter for image-to-image */}
+      {mode === "image-to-image" && onStrengthChange && (
+        <div className="space-y-2">
+          <div className="flex justify-between items-center">
+            <Label htmlFor="strength">Strength</Label>
+            <span className="text-sm text-muted-foreground">{strength.toFixed(2)}</span>
+          </div>
+          <Slider
+            id="strength"
+            min={0.1}
+            max={1.0}
+            step={0.05}
+            value={[strength]}
+            onValueChange={(value) => onStrengthChange(value[0])}
+            className="py-4"
+          />
+          <div className="text-xs text-muted-foreground">
+            How much to transform the input image (0.1 = subtle, 1.0 = heavy transformation)
+          </div>
+        </div>
+      )}
 
     </div>
   );

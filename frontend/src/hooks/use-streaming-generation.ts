@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { GenerationRequest, GenerationResponse } from '@/lib/api';
+import { GenerationRequest, GenerationResponse, ImageToImageRequest } from '@/lib/api';
 
 // API configuration
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8082';
@@ -68,7 +68,6 @@ const useStreamingGeneration = () => {
           height: request.height || 512,
           num_inference_steps: request.num_inference_steps || 6,
           guidance_scale: request.guidance_scale || 1.0,
-          seed: request.seed || null,
           model_name: request.model_name || 'sdxl-turbo',
           sampler: request.sampler || 'lcm',
         };
@@ -81,7 +80,6 @@ const useStreamingGeneration = () => {
         console.log('📐 Dimensions:', `${requestBody.width}x${requestBody.height}`);
         console.log('🔢 Inference Steps:', requestBody.num_inference_steps);
         console.log('🎯 Guidance Scale:', requestBody.guidance_scale);
-        console.log('🌱 Seed:', requestBody.seed || 'Random');
         console.log('🤖 Model:', requestBody.model_name);
         console.log('⚙️ Sampler:', requestBody.sampler);
         console.log('📦 Full Request Body:', requestBody);
@@ -199,9 +197,130 @@ const useStreamingGeneration = () => {
     });
   }, []);
 
+  const generateImageToImageStream = useCallback(
+    async (request: ImageToImageRequest): Promise<void> => {
+      // Reset state
+      setState({
+        isGenerating: true,
+        progress: 0,
+        stage: 'Initializing img2img',
+        currentStep: 0,
+        totalSteps: request.num_inference_steps || 20,
+        error: undefined,
+        result: undefined,
+      });
+
+      try {
+        // Close any existing EventSource
+        if (eventSourceRef.current) {
+          eventSourceRef.current.close();
+        }
+
+        // Make POST request to start streaming
+        const response = await fetch(`${API_BASE_URL}/api/generate-img2img-stream`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            prompt: request.prompt,
+            image_data: request.image_data,
+            negative_prompt: request.negative_prompt || null,
+            strength: request.strength || 0.75,
+            num_inference_steps: request.num_inference_steps || 20,
+            guidance_scale: request.guidance_scale || 7.5,
+            model_name: request.model_name || 'sdxl-base-1.0',
+            sampler: request.sampler || 'euler_a',
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        if (!response.body) {
+          throw new Error('No response body available for streaming');
+        }
+
+        // Create EventSource from the response
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          
+          if (done) break;
+          
+          buffer += decoder.decode(value, { stream: true });
+          
+          // Process complete lines
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || ''; // Keep incomplete line in buffer
+          
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.substring(6);
+              
+              if (data.trim() === '') continue; // Skip empty data
+              
+              try {
+                const parsed: ProgressUpdate = JSON.parse(data);
+                
+                if (parsed.type === 'progress') {
+                  setState(prev => ({
+                    ...prev,
+                    progress: parsed.progress || 0,
+                    stage: parsed.stage || prev.stage,
+                    currentStep: parsed.step || 0,
+                    totalSteps: parsed.total_steps || prev.totalSteps,
+                  }));
+                } else if (parsed.type === 'complete') {
+                  setState(prev => ({
+                    ...prev,
+                    isGenerating: false,
+                    progress: 100,
+                    stage: 'Completed',
+                    result: {
+                      image_url: parsed.image_url!,
+                      filename: parsed.filename!,
+                      generation_time: parsed.generation_time!,
+                    },
+                  }));
+                  break;
+                } else if (parsed.type === 'error') {
+                  setState(prev => ({
+                    ...prev,
+                    isGenerating: false,
+                    error: parsed.message || 'Unknown error occurred',
+                  }));
+                  break;
+                }
+              } catch (parseError) {
+                console.warn('Failed to parse SSE data:', parseError, 'Raw data:', data);
+              }
+            }
+          }
+        }
+        
+      } catch (error) {
+        console.error('Streaming img2img generation error:', error);
+        setState(prev => ({
+          ...prev,
+          isGenerating: false,
+          error: error instanceof Error ? error.message : 'Unknown error occurred',
+        }));
+      }
+    },
+    []
+  );
+
   return {
     ...state,
     generateImageStream,
+    generateImageToImageStream,
     cancelGeneration,
     resetState,
   };

@@ -11,31 +11,43 @@ interface ModelSelectorProps {
   selectedModel: string;
   onModelChange: (modelName: string) => void;
   onApplyDefaults?: (defaults: ModelDefaults) => void;
+  mode?: "text-to-image" | "image-to-image"; // Add mode prop to filter models
 }
 
-const ModelSelector = ({ selectedModel, onModelChange, onApplyDefaults }: ModelSelectorProps) => {
-  const [models, setModels] = useState<ModelInfo[]>([]);
+const ModelSelector = ({ selectedModel, onModelChange, onApplyDefaults, mode = "text-to-image" }: ModelSelectorProps) => {
+  const [allModels, setAllModels] = useState<ModelInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Filter models based on the mode - memoized to prevent infinite loops
+  const getFilteredModels = useCallback((models: ModelInfo[]) => {
+    if (mode === "text-to-image") {
+      return models.filter(model => 
+        model.type.includes("Text-to-Image") || 
+        model.type.includes("Qwen-Image") || 
+        model.type.includes("FLUX.1")
+      );
+    } else if (mode === "image-to-image") {
+      return models.filter(model => 
+        model.type.includes("Image-to-Image") || 
+        model.type.includes("Img2Img") ||
+        model.type.includes("Inpainting") ||
+        model.type.includes("Depth-to-Image")
+      );
+    }
+    return models;
+  }, [mode]);
+
+  // Get the current filtered models
+  const filteredModels = getFilteredModels(allModels);
+
+  // Load models function - only depends on loading state, not on props
   const loadModels = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       const availableModels = await imageAPI.getAvailableModels();
-      setModels(availableModels);
-      
-      // If no model is selected and we have models, select the first one and apply its defaults
-      if (!selectedModel && availableModels.length > 0) {
-        const firstModel = availableModels[0];
-        onModelChange(firstModel.name);
-        
-        // Apply defaults if available and callback is provided
-        if (onApplyDefaults && firstModel.defaults) {
-          onApplyDefaults(firstModel.defaults);
-          toast.success(`Applied defaults for ${firstModel.name.replace('-', ' ')}`);
-        }
-      }
+      setAllModels(availableModels);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load models';
       setError(errorMessage);
@@ -43,18 +55,51 @@ const ModelSelector = ({ selectedModel, onModelChange, onApplyDefaults }: ModelS
     } finally {
       setLoading(false);
     }
-  }, [selectedModel, onModelChange, onApplyDefaults]);
+  }, []);
 
+  // Handle model selection and mode changes separately
+  useEffect(() => {
+    if (filteredModels.length === 0) return;
+
+    // If no model is selected, select the first one
+    if (!selectedModel) {
+      const firstModel = filteredModels[0];
+      onModelChange(firstModel.name);
+      
+      // Apply defaults if available and callback is provided
+      if (onApplyDefaults && firstModel.defaults) {
+        onApplyDefaults(firstModel.defaults);
+        toast.success(`Applied defaults for ${firstModel.name.replace('-', ' ')}`);
+      }
+      return;
+    }
+
+    // Check if the currently selected model is still valid for this mode
+    const isSelectedModelValid = filteredModels.some(model => model.name === selectedModel);
+    if (!isSelectedModelValid) {
+      // Switch to the first valid model
+      const firstModel = filteredModels[0];
+      onModelChange(firstModel.name);
+      toast.info(`Switched to ${firstModel.name} (suitable for ${mode})`);
+      
+      // Apply defaults if available and callback is provided
+      if (onApplyDefaults && firstModel.defaults) {
+        onApplyDefaults(firstModel.defaults);
+      }
+    }
+  }, [filteredModels, selectedModel, onModelChange, onApplyDefaults, mode]);
+
+  // Only load models once on mount
   useEffect(() => {
     loadModels();
-  }, [loadModels]);
+  }, []);
 
   const handleModelSelect = (modelName: string) => {
     onModelChange(modelName);
     
     // Apply defaults if available and callback is provided
     if (onApplyDefaults) {
-      const selectedModelInfo = models.find(m => m.name === modelName);
+      const selectedModelInfo = filteredModels.find(m => m.name === modelName);
       if (selectedModelInfo?.defaults) {
         onApplyDefaults(selectedModelInfo.defaults);
         toast.success(`Applied defaults for ${modelName.replace('-', ' ')}`);
@@ -91,12 +136,17 @@ const ModelSelector = ({ selectedModel, onModelChange, onApplyDefaults }: ModelS
     );
   }
 
-  if (models.length === 0) {
+  if (filteredModels.length === 0 && !loading) {
     return (
       <Card className="p-6">
         <div className="flex items-center gap-3 text-muted-foreground">
           <AlertCircle className="h-5 w-5" />
-          <span className="text-sm">No models found. Please check your models directory.</span>
+          <span className="text-sm">
+            No models found for {mode === "image-to-image" ? "image-to-image" : "text-to-image"}.
+          </span>
+          <Button variant="outline" size="sm" onClick={loadModels}>
+            Retry
+          </Button>
         </div>
       </Card>
     );
@@ -106,14 +156,21 @@ const ModelSelector = ({ selectedModel, onModelChange, onApplyDefaults }: ModelS
     <Card className="p-6">
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-medium">Available Models</h3>
-          <Badge variant="secondary">{models.length} model{models.length !== 1 ? 's' : ''}</Badge>
+          <h3 className="font-medium">
+            Available Models {mode === "image-to-image" ? "(Image-to-Image)" : "(Text-to-Image)"}
+          </h3>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary">{filteredModels.length} model{filteredModels.length !== 1 ? 's' : ''}</Badge>
+            <Button variant="outline" size="sm" onClick={loadModels} disabled={loading}>
+              {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : "Refresh"}
+            </Button>
+          </div>
         </div>
         
         {/* Scrollable models container - shows ~1.5 models */}
         <ScrollArea className="h-[240px]">
           <div className="grid gap-3 pr-4">
-            {models.map((model) => (
+            {filteredModels.map((model) => (
               <div
                 key={model.name}
                 className={`
@@ -157,7 +214,7 @@ const ModelSelector = ({ selectedModel, onModelChange, onApplyDefaults }: ModelS
         </ScrollArea>
         
         <div className="text-xs text-muted-foreground">
-          Click on a model to select it for image generation
+          Click on a model to select it for image generation. Use "Refresh" to reload models.
         </div>
       </div>
     </Card>

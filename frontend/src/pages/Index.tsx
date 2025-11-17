@@ -8,6 +8,7 @@ import ModeSelector from "@/components/ModeSelector";
 import ModelSelector from "@/components/ModelSelector";
 import ParameterControls from "@/components/ParameterControls";
 import ImageDisplay from "@/components/ImageDisplay";
+import ImageUpload from "@/components/ImageUpload";
 import GenerationProgress from "@/components/GenerationProgress";
 import GuidancePopup from "@/components/GuidancePopup";
 import { imageAPI, ModelDefaults } from "@/lib/api";
@@ -29,6 +30,10 @@ const Index = () => {
   const [useStreaming, setUseStreaming] = useState(true); // Toggle for streaming vs regular generation
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [generationTime, setGenerationTime] = useState<number | null>(null);
+  
+  // Image-to-image specific state
+  const [inputImage, setInputImage] = useState<string>(""); // Base64 image data
+  const [strength, setStrength] = useState(0.75); // Img2img strength parameter
 
   // Streaming generation hook
   const {
@@ -40,6 +45,7 @@ const Index = () => {
     error: streamingError,
     result: streamingResult,
     generateImageStream,
+    generateImageToImageStream,
     cancelGeneration,
     resetState
   } = useStreamingGeneration();
@@ -65,10 +71,45 @@ const Index = () => {
     }
   }, [streamingError]);
 
+  // Handle mode changes - adjust defaults for img2img
+  useEffect(() => {
+    if (selectedMode === "image-to-image") {
+      // Set img2img defaults
+      if (selectedModel === "sdxl-turbo") {
+        setSelectedModel("sdxl-base-1.0"); // Switch to base model for img2img
+      }
+      if (guidanceScale === 1.0) {
+        setGuidanceScale(7.5); // Higher guidance for img2img
+      }
+      if (steps === 6) {
+        setSteps(20); // More steps for img2img
+      }
+      if (sampler === "lcm") {
+        setSampler("euler_a"); // Different sampler for img2img
+      }
+    } else if (selectedMode === "text-to-image") {
+      // Reset to text-to-image defaults if coming from img2img
+      if (selectedModel === "sdxl-base-1.0" && guidanceScale === 7.5) {
+        setSelectedModel("sdxl-turbo");
+        setGuidanceScale(1.0);
+        setSteps(6);
+        setSampler("lcm");
+      }
+    }
+  }, [selectedMode]);
+
   const handleGenerate = async () => {
     if (!prompt.trim()) {
       toast.error("Please enter a prompt");
       return;
+    }
+
+    // Check img2img specific requirements
+    if (selectedMode === "image-to-image") {
+      if (!inputImage) {
+        toast.error("Please upload an input image for image-to-image generation");
+        return;
+      }
     }
 
     // Reset previous results
@@ -76,51 +117,91 @@ const Index = () => {
     setGenerationTime(null);
     resetState();
 
-    const requestParams = {
-      prompt: prompt.trim(),
-      negative_prompt: negativePrompt.trim() || undefined,
-      width,
-      height,
-      num_inference_steps: steps,
-      guidance_scale: guidanceScale,
-      model_name: selectedModel,
-      sampler: sampler,
-    };
+    if (selectedMode === "image-to-image") {
+      // Image-to-image generation
+      const img2imgParams = {
+        prompt: prompt.trim(),
+        image_data: inputImage,
+        negative_prompt: negativePrompt.trim() || undefined,
+        strength: strength,
+        num_inference_steps: steps,
+        guidance_scale: guidanceScale,
+        model_name: selectedModel,
+        sampler: sampler,
+      };
 
-    // Log the parameters being prepared
-    console.log('🚀 FRONTEND: Preparing Generation Parameters');
-    console.log('Parameters from UI:', requestParams);
-    console.log('Selected Model:', selectedModel);
-    console.log('Sampler:', sampler);
-    console.log('Steps:', steps);
-    console.log('Use Streaming:', useStreaming);
-    
-    // Also log with alert to make sure we can see it
-    console.warn('🚀 REQUEST PARAMS OBJECT:', JSON.stringify(requestParams, null, 2));
+      console.log('🚀 FRONTEND: Preparing IMG2IMG Generation Parameters');
+      console.log('Parameters from UI:', img2imgParams);
+      console.log('Selected Mode:', selectedMode);
+      console.log('Use Streaming:', useStreaming);
 
-    if (useStreaming) {
-      // Use streaming generation
-      await generateImageStream(requestParams);
-    } else {
-      // Use legacy generation
-      setLegacyGenerating(true);
-      
-      try {
-        const result = await imageAPI.generateImage(requestParams);
+      if (useStreaming) {
+        // Use streaming img2img generation
+        await generateImageToImageStream(img2imgParams);
+      } else {
+        // Use legacy img2img generation
+        setLegacyGenerating(true);
+        
+        try {
+          const result = await imageAPI.generateImageToImage(img2imgParams);
 
-        if (result.success && result.image_url) {
-          setGeneratedImage(result.image_url);
-          setGenerationTime(result.generation_time || null);
-          toast.success(`Image generated successfully! ${result.generation_time ? `(${result.generation_time.toFixed(1)}s)` : ''}`);
-        } else {
-          throw new Error(result.message || "No image URL returned");
+          if (result.success && result.image_url) {
+            setGeneratedImage(result.image_url);
+            setGenerationTime(result.generation_time || null);
+            toast.success(`Image generated successfully! ${result.generation_time ? `(${result.generation_time.toFixed(1)}s)` : ''}`);
+          } else {
+            throw new Error(result.message || "No image URL returned");
+          }
+        } catch (error) {
+          console.error("IMG2IMG Generation error:", error);
+          const errorMessage = error instanceof Error ? error.message : "Failed to generate image";
+          toast.error(errorMessage);
+        } finally {
+          setLegacyGenerating(false);
         }
-      } catch (error) {
-        console.error("Generation error:", error);
-        const errorMessage = error instanceof Error ? error.message : "Failed to generate image";
-        toast.error(errorMessage);
-      } finally {
-        setLegacyGenerating(false);
+      }
+    } else {
+      // Text-to-image generation
+      const requestParams = {
+        prompt: prompt.trim(),
+        negative_prompt: negativePrompt.trim() || undefined,
+        width,
+        height,
+        num_inference_steps: steps,
+        guidance_scale: guidanceScale,
+        model_name: selectedModel,
+        sampler: sampler,
+      };
+
+      console.log('🚀 FRONTEND: Preparing Generation Parameters');
+      console.log('Parameters from UI:', requestParams);
+      console.log('Selected Mode:', selectedMode);
+      console.log('Use Streaming:', useStreaming);
+
+      if (useStreaming) {
+        // Use streaming generation
+        await generateImageStream(requestParams);
+      } else {
+        // Use legacy generation
+        setLegacyGenerating(true);
+        
+        try {
+          const result = await imageAPI.generateImage(requestParams);
+
+          if (result.success && result.image_url) {
+            setGeneratedImage(result.image_url);
+            setGenerationTime(result.generation_time || null);
+            toast.success(`Image generated successfully! ${result.generation_time ? `(${result.generation_time.toFixed(1)}s)` : ''}`);
+          } else {
+            throw new Error(result.message || "No image URL returned");
+          }
+        } catch (error) {
+          console.error("Generation error:", error);
+          const errorMessage = error instanceof Error ? error.message : "Failed to generate image";
+          toast.error(errorMessage);
+        } finally {
+          setLegacyGenerating(false);
+        }
       }
     }
   };
@@ -184,6 +265,7 @@ const Index = () => {
             selectedModel={selectedModel} 
             onModelChange={setSelectedModel} 
             onApplyDefaults={handleModelDefaults}
+            mode={selectedMode === "image-to-image" ? "image-to-image" : "text-to-image"}
           />
         </div>
 
@@ -213,17 +295,32 @@ const Index = () => {
                   />
                 </div>
 
+                {/* Image Upload for img2img mode */}
+                {selectedMode === "image-to-image" && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Input Image</label>
+                    <ImageUpload
+                      onImageSelect={setInputImage}
+                      currentImage={inputImage ? `data:image/jpeg;base64,${inputImage}` : undefined}
+                      disabled={isGenerating}
+                    />
+                  </div>
+                )}
+
                 <ParameterControls
                   guidanceScale={guidanceScale}
                   steps={steps}
                   width={width}
                   height={height}
                   sampler={sampler}
+                  strength={strength}
+                  mode={selectedMode === "image-to-image" ? "image-to-image" : "text-to-image"}
                   onGuidanceScaleChange={setGuidanceScale}
                   onStepsChange={setSteps}
                   onWidthChange={setWidth}
                   onHeightChange={setHeight}
                   onSamplerChange={setSampler}
+                  onStrengthChange={setStrength}
                 />
 
                 <div className="flex gap-2">

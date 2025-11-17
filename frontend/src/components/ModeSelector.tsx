@@ -12,7 +12,7 @@ const ModeSelector = ({ selectedMode, onModeChange }: ModeSelectorProps) => {
   const modes = [
     { id: "text-to-image" as Mode, label: "Text to Image", available: true },
     { id: "text-to-video" as Mode, label: "Text to Video", available: false },
-    { id: "image-to-image" as Mode, label: "Image to Image", available: false },
+    { id: "image-to-image" as Mode, label: "Image to Image", available: true },
   ];
 
   return (

@@ -6,8 +6,12 @@ from datetime import datetime
 from pathlib import Path
 import torch
 import time
+import base64
+import io
+from PIL import Image
 
-from .text2image import build_pipe, detect_device, multiple_of_8, save_image, SAMPLERS
+from .text2image import build_pipe, build_img2img_pipe, detect_device, multiple_of_8, save_image, SAMPLERS
+from .model_detection import detect_model_type, is_text_to_image_model, is_image_to_image_model, get_recommended_model_for_task
 
 logger = logging.getLogger(__name__)
 
@@ -20,15 +24,11 @@ class ImagePipeline:
         backend_dir = Path(__file__).parent.parent.parent
         self.models_dir = backend_dir / "models"
         self.outputs_dir = backend_dir / "outputs"
-        self.available_models = [
-            "sdxl-turbo",
-            "sdxl-base-1.0",
-            "qwen-image"
-        ]
         self._ensure_directories()
         self._device = None
         self._dtype = None
         self._pipe = None
+        self._img2img_pipe = None
 
     # --------------------------------------------------------------------- #
     # Helpers
@@ -45,11 +45,92 @@ class ImagePipeline:
     def _is_qwen_model(self, model_name: str) -> bool:
         return model_name.lower() in {"qwen-image", "qwen"}
 
+    def _get_suitable_model_for_text2image(self, requested_model: str) -> str:
+        """
+        Get a suitable model for text-to-image generation.
+        If the requested model is not suitable, find an alternative.
+        """
+        model_path = f"models/{requested_model}"
+        
+        # Check if requested model exists and is suitable for text-to-image
+        if os.path.exists(model_path) and is_text_to_image_model(model_path):
+            return requested_model
+        
+        # Try to find a suitable alternative
+        suitable_model = get_recommended_model_for_task(str(self.models_dir), "text-to-image")
+        
+        if suitable_model:
+            logger.warning(f"Model '{requested_model}' not suitable for text-to-image, using '{suitable_model}' instead")
+            return suitable_model
+        else:
+            # Fallback to original model (might fail, but let it fail gracefully)
+            logger.error(f"No suitable text-to-image model found, attempting with '{requested_model}'")
+            return requested_model
+    
+    def _get_suitable_model_for_img2img(self, requested_model: str) -> str:
+        """
+        Get a suitable model for image-to-image generation.
+        If the requested model is not suitable, find an alternative.
+        """
+        model_path = f"models/{requested_model}"
+        
+        # Check if requested model exists and is suitable for image-to-image
+        if os.path.exists(model_path) and is_image_to_image_model(model_path):
+            return requested_model
+        
+        # Try to find a suitable alternative
+        suitable_model = get_recommended_model_for_task(str(self.models_dir), "image-to-image")
+        
+        if suitable_model:
+            logger.warning(f"Model '{requested_model}' not suitable for image-to-image, using '{suitable_model}' instead")
+            return suitable_model
+        else:
+            # For img2img, we can often use text-to-image models in img2img mode
+            # Check if the requested model is at least a text-to-image model
+            if os.path.exists(model_path) and is_text_to_image_model(model_path):
+                logger.info(f"Using text-to-image model '{requested_model}' for image-to-image generation")
+                return requested_model
+            
+            # Last resort: try to find any text-to-image model
+            text2img_model = get_recommended_model_for_task(str(self.models_dir), "text-to-image")
+            if text2img_model:
+                logger.warning(f"No dedicated img2img model found, using text-to-image model '{text2img_model}' instead")
+                return text2img_model
+            
+            # Fallback to original model (might fail, but let it fail gracefully)
+            logger.error(f"No suitable model found for image-to-image, attempting with '{requested_model}'")
+            return requested_model
+
     def _load_pipeline(self, model_path: str, sampler: str = "lcm"):
         if self._pipe is None:
             device, dtype = self._get_device_info()
             self._pipe = build_pipe(model_path, sampler, device, dtype)
         return self._pipe
+    
+    def _load_img2img_pipeline(self, model_path: str, sampler: str = "euler_a"):
+        if self._img2img_pipe is None:
+            device, dtype = self._get_device_info()
+            self._img2img_pipe = build_img2img_pipe(model_path, sampler, device, dtype)
+        return self._img2img_pipe
+    
+    def _decode_base64_image(self, image_data: str) -> Image.Image:
+        """Decode base64 image string to PIL Image"""
+        try:
+            # Remove data URL prefix if present
+            if image_data.startswith('data:image'):
+                image_data = image_data.split(',')[1]
+            
+            # Decode base64
+            image_bytes = base64.b64decode(image_data)
+            image = Image.open(io.BytesIO(image_bytes))
+            
+            # Convert to RGB if necessary
+            if image.mode != 'RGB':
+                image = image.convert('RGB')
+                
+            return image
+        except Exception as e:
+            raise ValueError(f"Invalid image data: {str(e)}")
 
     # --------------------------------------------------------------------- #
     # Unified callback wrapper (works for both pipelines)
@@ -137,7 +218,10 @@ class ImagePipeline:
         progress_callback: Optional[Callable[[int, int, str], None]] = None,
     ) -> str:
         start_time = time.time()
-        print(f"[Async] Generating with {model_name} – prompt: {prompt!r}")
+        
+        # Get suitable model for text-to-image generation
+        actual_model = self._get_suitable_model_for_text2image(model_name)
+        print(f"[Async] Generating with {actual_model} – prompt: {prompt!r}")
 
         # ----- parameter clamping -----
         w = multiple_of_8(width)
@@ -148,7 +232,7 @@ class ImagePipeline:
         if progress_callback:
             progress_callback(0, steps, "Loading model")
 
-        model_path = f"models/{model_name}"
+        model_path = f"models/{actual_model}"
         if not os.path.exists(os.path.join(model_path, "model_index.json")):
             raise FileNotFoundError(f"model_index.json missing in {model_path}")
 
@@ -201,12 +285,99 @@ class ImagePipeline:
             progress_callback(steps, steps, "Post-processing")
 
         img = result.images[0]
-        out_path = save_image(img, model_name=model_name, sampler=sampler)
+        out_path = save_image(img, model_name=actual_model, sampler=sampler)
 
         if progress_callback:
             progress_callback(steps, steps, "Completed")
 
         logger.info(f"Async generation finished in {time.time() - start_time:.2f}s → {out_path.name}")
+        return out_path.name
+
+    # --------------------------------------------------------------------- #
+    # Image-to-Image generation
+    # --------------------------------------------------------------------- #
+    async def generate_img2img(
+        self,
+        prompt: str,
+        image_data: str,
+        negative_prompt: Optional[str] = None,
+        strength: float = 0.75,
+        num_inference_steps: int = 20,
+        guidance_scale: float = 7.5,
+        seed: Optional[int] = None,
+        model_name: str = "sdxl-base-1.0",
+        sampler: str = "euler_a",
+        progress_callback: Optional[Callable[[int, int, str], None]] = None,
+    ) -> str:
+        start_time = time.time()
+        
+        # Get suitable model for image-to-image generation
+        actual_model = self._get_suitable_model_for_img2img(model_name)
+        print(f"[Async IMG2IMG] Generating with {actual_model} – prompt: {prompt!r}")
+
+        # Decode input image
+        if progress_callback:
+            progress_callback(0, num_inference_steps, "Decoding input image")
+        
+        input_image = self._decode_base64_image(image_data)
+        
+        # Parameter validation
+        steps = max(1, min(num_inference_steps, 50))
+        strength = max(0.1, min(strength, 1.0))
+        guidance = max(0.1, min(guidance_scale, 20.0))
+
+        if progress_callback:
+            progress_callback(0, steps, "Loading img2img model")
+
+        model_path = f"models/{actual_model}"
+        if not os.path.exists(os.path.join(model_path, "model_index.json")):
+            raise FileNotFoundError(f"model_index.json missing in {model_path}")
+
+        pipe = self._load_img2img_pipeline(model_path, sampler)
+
+        if progress_callback:
+            progress_callback(0, steps, "Preparing img2img generation")
+
+        # Seed
+        device, _ = self._get_device_info()
+        generator = None
+        if seed is not None:
+            gen_cls = torch.Generator(device="cuda" if device == "cuda" else "cpu")
+            generator = gen_cls.manual_seed(seed)
+
+        # Generation (runs in thread pool)
+        def _generate_img2img():
+            gen_args = {
+                "prompt": prompt,
+                "image": input_image,
+                "negative_prompt": negative_prompt or None,
+                "num_inference_steps": steps,
+                "strength": strength,
+                "guidance_scale": guidance,
+                "generator": generator,
+            }
+
+            # Progress callback
+            if progress_callback:
+                wrapper = self._make_progress_wrapper(steps, progress_callback)
+                gen_args["callback"] = wrapper
+                gen_args["callback_steps"] = 1
+
+            return pipe(**gen_args)
+
+        result = await asyncio.get_event_loop().run_in_executor(None, _generate_img2img)
+
+        # Post-processing
+        if progress_callback:
+            progress_callback(steps, steps, "Post-processing")
+
+        img = result.images[0]
+        out_path = save_image(img, model_name=actual_model, sampler=f"{sampler}_img2img")
+
+        if progress_callback:
+            progress_callback(steps, steps, "Completed")
+
+        logger.info(f"Async img2img generation finished in {time.time() - start_time:.2f}s → {out_path.name}")
         return out_path.name
 
     # --------------------------------------------------------------------- #
@@ -227,7 +398,10 @@ class ImagePipeline:
         progress_callback: Optional[Callable[[int, int, str], None]] = None,
     ) -> str:
         start_time = time.time()
-        print(f"[Threaded] Generating with {model_name} – prompt: {prompt!r}")
+        
+        # Get suitable model for text-to-image generation
+        actual_model = self._get_suitable_model_for_text2image(model_name)
+        print(f"[Threaded] Generating with {actual_model} – prompt: {prompt!r}")
 
         w = multiple_of_8(width)
         h = multiple_of_8(height)
@@ -237,7 +411,7 @@ class ImagePipeline:
         if progress_callback:
             progress_callback(0, steps, "Loading model")
 
-        model_path = f"models/{model_name}"
+        model_path = f"models/{actual_model}"
         if not os.path.exists(os.path.join(model_path, "model_index.json")):
             raise FileNotFoundError(f"model_index.json missing in {model_path}")
 
@@ -284,7 +458,7 @@ class ImagePipeline:
             progress_callback(steps, steps, "Post-processing")
 
         img = result.images[0]
-        out_path = save_image(img, model_name=model_name, sampler=sampler)
+        out_path = save_image(img, model_name=actual_model, sampler=sampler)
 
         if progress_callback:
             progress_callback(steps, steps, "Completed")
@@ -295,9 +469,6 @@ class ImagePipeline:
     # --------------------------------------------------------------------- #
     # Misc
     # --------------------------------------------------------------------- #
-    def get_available_models(self) -> List[str]:
-        return self.available_models
-
     def set_seed(self, seed: Optional[int] = None) -> int:
         if seed is None:
             seed = int(datetime.now().timestamp())

@@ -13,6 +13,17 @@ export interface GenerationRequest {
   sampler?: string;
 }
 
+export interface ImageToImageRequest {
+  prompt: string;
+  image_data: string;
+  negative_prompt?: string;
+  strength?: number;
+  num_inference_steps?: number;
+  guidance_scale?: number;
+  model_name?: string;
+  sampler?: string;
+}
+
 export interface GenerationResponse {
   success: boolean;
   image_url?: string;
@@ -103,6 +114,42 @@ class ImageGenerationAPI {
       return data;
     } catch (error) {
       console.error('Image generation error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Generate an AI image from an input image (image-to-image)
+   */
+  async generateImageToImage(request: ImageToImageRequest): Promise<GenerationResponse> {
+    try {
+      const response = await this.makeRequest('/generate-img2img', {
+        method: 'POST',
+        body: JSON.stringify({
+          prompt: request.prompt,
+          image_data: request.image_data,
+          negative_prompt: request.negative_prompt || null,
+          strength: request.strength || 0.75,
+          num_inference_steps: request.num_inference_steps || 20,
+          guidance_scale: request.guidance_scale || 7.5,
+          model_name: request.model_name || 'sdxl-base-1.0',
+          sampler: request.sampler || 'euler_a',
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data: GenerationResponse = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.message || 'Image-to-image generation failed');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Image-to-image generation error:', error);
       throw error;
     }
   }
