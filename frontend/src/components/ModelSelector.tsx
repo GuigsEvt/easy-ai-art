@@ -5,14 +5,15 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { AlertCircle, CheckCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { imageAPI, ModelInfo } from "@/lib/api";
+import { imageAPI, ModelInfo, ModelDefaults } from "@/lib/api";
 
 interface ModelSelectorProps {
   selectedModel: string;
   onModelChange: (modelName: string) => void;
+  onApplyDefaults?: (defaults: ModelDefaults) => void;
 }
 
-const ModelSelector = ({ selectedModel, onModelChange }: ModelSelectorProps) => {
+const ModelSelector = ({ selectedModel, onModelChange, onApplyDefaults }: ModelSelectorProps) => {
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -24,9 +25,16 @@ const ModelSelector = ({ selectedModel, onModelChange }: ModelSelectorProps) => 
       const availableModels = await imageAPI.getAvailableModels();
       setModels(availableModels);
       
-      // If no model is selected and we have models, select the first one
+      // If no model is selected and we have models, select the first one and apply its defaults
       if (!selectedModel && availableModels.length > 0) {
-        onModelChange(availableModels[0].name);
+        const firstModel = availableModels[0];
+        onModelChange(firstModel.name);
+        
+        // Apply defaults if available and callback is provided
+        if (onApplyDefaults && firstModel.defaults) {
+          onApplyDefaults(firstModel.defaults);
+          toast.success(`Applied defaults for ${firstModel.name.replace('-', ' ')}`);
+        }
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load models';
@@ -35,7 +43,7 @@ const ModelSelector = ({ selectedModel, onModelChange }: ModelSelectorProps) => 
     } finally {
       setLoading(false);
     }
-  }, [selectedModel, onModelChange]);
+  }, [selectedModel, onModelChange, onApplyDefaults]);
 
   useEffect(() => {
     loadModels();
@@ -43,7 +51,19 @@ const ModelSelector = ({ selectedModel, onModelChange }: ModelSelectorProps) => 
 
   const handleModelSelect = (modelName: string) => {
     onModelChange(modelName);
-    toast.success(`Selected model: ${modelName}`);
+    
+    // Apply defaults if available and callback is provided
+    if (onApplyDefaults) {
+      const selectedModelInfo = models.find(m => m.name === modelName);
+      if (selectedModelInfo?.defaults) {
+        onApplyDefaults(selectedModelInfo.defaults);
+        toast.success(`Applied defaults for ${modelName.replace('-', ' ')}`);
+      } else {
+        toast.success(`Selected model: ${modelName}`);
+      }
+    } else {
+      toast.success(`Selected model: ${modelName}`);
+    }
   };
 
   if (loading) {

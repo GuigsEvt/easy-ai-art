@@ -1,52 +1,55 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { HelpCircle, Info } from "lucide-react";
+import { HelpCircle, Info, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { imageAPI, ModelDefaults } from "@/lib/api";
 
-interface ModelDefaults {
-  guidance_scale: number;
+interface GuidancePopupModelDefaults extends ModelDefaults {
   steps: number;
-  width: number;
-  height: number;
-  sampler: string;
-  explanation: string;
 }
 
-const modelDefaults: Record<string, ModelDefaults> = {
-  "sdxl-turbo": {
-    guidance_scale: 1.0,
-    steps: 6,
-    width: 512,
-    height: 512,
-    sampler: "lcm",
-    explanation: "SDXL-Turbo is optimized for fast generation with minimal steps. Uses low guidance scale (1.0) and LCM sampler for best results."
-  },
-  "sdxl-base-1.0": {
-    guidance_scale: 7.5,
-    steps: 25,
-    width: 1024,
-    height: 1024,
-    sampler: "euler",
-    explanation: "SDXL Base provides high-quality images with more detail. Requires higher guidance scale (7.5) and more steps for optimal results."
-  },
-  "qwen-image": {
-    guidance_scale: 5.0,
-    steps: 20,
-    width: 768,
-    height: 768,
-    sampler: "dpmpp_2m",
-    explanation: "Qwen-Image is a versatile model that balances quality and speed. Works well with moderate guidance scale and steps."
-  }
-};
-
 interface GuidancePopupProps {
-  onApplyDefaults?: (model: string, defaults: ModelDefaults) => void;
+  onApplyDefaults?: (model: string, defaults: GuidancePopupModelDefaults) => void;
 }
 
 const GuidancePopup = ({ onApplyDefaults }: GuidancePopupProps) => {
   const [open, setOpen] = useState(false);
+  const [modelDefaults, setModelDefaults] = useState<Record<string, GuidancePopupModelDefaults>>({});
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (open && Object.keys(modelDefaults).length === 0) {
+      loadModelDefaults();
+    }
+  }, [open, modelDefaults]);
+
+  const loadModelDefaults = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const defaults = await imageAPI.getAllModelDefaults();
+      
+      const convertedDefaults: Record<string, GuidancePopupModelDefaults> = {};
+      for (const [modelName, modelDefault] of Object.entries(defaults)) {
+        convertedDefaults[modelName] = {
+          ...modelDefault,
+          steps: modelDefault.num_inference_steps
+        };
+      }
+      
+      setModelDefaults(convertedDefaults);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load model defaults';
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleApplyDefaults = (modelName: string) => {
     const defaults = modelDefaults[modelName];
@@ -75,98 +78,100 @@ const GuidancePopup = ({ onApplyDefaults }: GuidancePopupProps) => {
             Model Default Values & Guidance
           </DialogTitle>
           <DialogDescription>
-            Recommended parameter values for optimal results with each model. Click "Apply" to use these defaults.
+            Recommended parameter values for optimal results with each model.
           </DialogDescription>
         </DialogHeader>
         
-        {/* Scrollable models section - shows ~1.5 models */}
         <div className="flex-1 min-h-0 mt-6">
-          <ScrollArea className="h-[300px]">
-            <div className="grid gap-6 pr-4">
-              {Object.entries(modelDefaults).map(([modelName, defaults]) => (
-                <Card key={modelName} className="border-border">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle className="text-lg capitalize">
-                          {modelName.replace('-', ' ')}
-                        </CardTitle>
-                        <CardDescription className="mt-2">
-                          {defaults.explanation}
-                        </CardDescription>
-                      </div>
-                      <Button
-                        onClick={() => handleApplyDefaults(modelName)}
-                        size="sm"
-                        className="bg-primary hover:bg-primary/90"
-                      >
-                        Apply Defaults
-                      </Button>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                      <div className="space-y-1">
-                        <div className="text-sm font-medium text-muted-foreground">Guidance Scale</div>
-                        <div className="text-lg font-semibold">{defaults.guidance_scale}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {defaults.guidance_scale <= 2.0 ? "Low (Fast)" : defaults.guidance_scale <= 5.0 ? "Medium" : "High (Quality)"}
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-1">
-                        <div className="text-sm font-medium text-muted-foreground">Steps</div>
-                        <div className="text-lg font-semibold">{defaults.steps}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {defaults.steps <= 10 ? "Fast" : defaults.steps <= 20 ? "Balanced" : "Quality"}
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-1">
-                        <div className="text-sm font-medium text-muted-foreground">Resolution</div>
-                        <div className="text-lg font-semibold">{defaults.width}×{defaults.height}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {defaults.width >= 1024 ? "High-res" : defaults.width >= 768 ? "Medium-res" : "Standard"}
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-1">
-                        <div className="text-sm font-medium text-muted-foreground">Sampler</div>
-                        <div className="text-lg font-semibold uppercase">{defaults.sampler}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {defaults.sampler === "lcm" ? "Fast" : defaults.sampler === "euler" ? "Balanced" : "Quality"}
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-1">
-                        <div className="text-sm font-medium text-muted-foreground">Best For</div>
-                        <div className="text-sm">
-                          {modelName === "sdxl-turbo" ? "Speed & Iteration" : 
-                           modelName === "qwen-image" ? "Versatile Use" : "Final Quality"}
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+          {loading ? (
+            <div className="flex items-center justify-center h-[300px]">
+              <div className="flex items-center gap-3">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span className="text-sm text-muted-foreground">Loading model defaults...</span>
+              </div>
             </div>
-          </ScrollArea>
-        </div>
-        
-        {/* Fixed parameter explanations at the bottom */}
-        <div className="mt-4 p-4 bg-muted/50 rounded-lg border border-border">
-          <div className="flex items-start gap-3">
-            <Info className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-            <div className="space-y-2 text-sm">
-              <div className="font-medium">Parameter Explanations:</div>
-              <ul className="space-y-1 text-muted-foreground">
-                <li><strong>Guidance Scale:</strong> Controls how closely the model follows your prompt. Lower values give more creative freedom.</li>
-                <li><strong>Steps:</strong> Number of denoising steps. More steps = higher quality but slower generation.</li>
-                <li><strong>Resolution:</strong> Output image dimensions. Higher resolution requires more memory and time.</li>
-                <li><strong>Sampler:</strong> The algorithm used for generation. Different samplers have different quality/speed trade-offs.</li>
-              </ul>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center h-[300px] gap-3">
+              <div className="text-sm text-destructive">{error}</div>
+              <Button variant="outline" size="sm" onClick={loadModelDefaults}>
+                Retry
+              </Button>
             </div>
-          </div>
+          ) : Object.keys(modelDefaults).length === 0 ? (
+            <div className="flex items-center justify-center h-[300px]">
+              <div className="text-sm text-muted-foreground">No model defaults found</div>
+            </div>
+          ) : (
+            <ScrollArea className="h-[300px]">
+              <div className="grid gap-6 pr-4">
+                {Object.entries(modelDefaults).map(([modelName, defaults]) => (
+                  <Card key={modelName} className="border-border">
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle className="text-lg capitalize">
+                            {modelName.replace('-', ' ')}
+                          </CardTitle>
+                          <CardDescription className="mt-2">
+                            {defaults.explanation}
+                          </CardDescription>
+                        </div>
+                        <Button
+                          onClick={() => handleApplyDefaults(modelName)}
+                          size="sm"
+                          className="bg-primary hover:bg-primary/90"
+                        >
+                          Apply Defaults
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                        <div className="space-y-1">
+                          <div className="text-sm font-medium text-muted-foreground">Guidance</div>
+                          <div className="text-lg font-semibold">{defaults.guidance_scale}</div>
+                        </div>
+                        
+                        <div className="space-y-1">
+                          <div className="text-sm font-medium text-muted-foreground">Steps</div>
+                          <div className="text-lg font-semibold">{defaults.steps}</div>
+                        </div>
+                        
+                        <div className="space-y-1">
+                          <div className="text-sm font-medium text-muted-foreground">Resolution</div>
+                          <div className="text-lg font-semibold">{defaults.width}×{defaults.height}</div>
+                        </div>
+                        
+                        <div className="space-y-1">
+                          <div className="text-sm font-medium text-muted-foreground">Sampler</div>
+                          <div className="text-lg font-semibold">
+                            {defaults.sampler === "flowmatch" ? "Match Euler" : 
+                             defaults.sampler === "euler_a" ? "Euler Ancestral" :
+                             defaults.sampler === "dpmpp_2m" ? "DPM++ 2M" :
+                             defaults.sampler === "dpmpp_2m_karras" ? "DPM++ 2M Karras" :
+                             defaults.sampler.toUpperCase()}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {defaults.sampler === "lcm" ? "Fast" : 
+                             defaults.sampler === "flowmatch" ? "Qwen-Optimized" :
+                             defaults.sampler === "euler" ? "Balanced" : "Quality"}
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-1">
+                          <div className="text-sm font-medium text-muted-foreground">Type</div>
+                          <div className="text-sm">
+                            {modelName === "sdxl-turbo" ? "Fast" : 
+                             modelName === "qwen-image" ? "Versatile" : "Quality"}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </ScrollArea>
+          )}
         </div>
       </DialogContent>
     </Dialog>

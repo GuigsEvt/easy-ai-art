@@ -21,6 +21,15 @@ export interface GenerationResponse {
   generation_time?: number;
 }
 
+export interface ModelDefaults {
+  guidance_scale: number;
+  num_inference_steps: number;
+  width: number;
+  height: number;
+  sampler: string;
+  explanation: string;
+}
+
 export interface ModelInfo {
   name: string;
   path: string;
@@ -28,6 +37,7 @@ export interface ModelInfo {
   pipeline_class?: string;
   description?: string;
   config?: Record<string, unknown>;
+  defaults?: ModelDefaults;
 }
 
 export interface ModelsResponse {
@@ -118,6 +128,49 @@ class ImageGenerationAPI {
       return data.models;
     } catch (error) {
       console.error('Failed to fetch models:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get default parameters for all models
+   */
+  async getAllModelDefaults(): Promise<Record<string, ModelDefaults>> {
+    try {
+      const response = await this.makeRequest('/models/defaults/all');
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.message || 'Failed to fetch model defaults');
+      }
+      
+      return data.defaults;
+    } catch (error) {
+      console.error('Failed to fetch model defaults:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get default parameters for a specific model
+   */
+  async getModelDefaults(modelName: string): Promise<ModelDefaults> {
+    try {
+      const response = await this.makeRequest(`/models/${modelName}/defaults`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data: ModelDefaults = await response.json();
+      return data;
+    } catch (error) {
+      console.error(`Failed to fetch defaults for model ${modelName}:`, error);
       throw error;
     }
   }

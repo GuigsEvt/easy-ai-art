@@ -36,6 +36,7 @@ const ParameterControls = ({
     { value: "ddim", label: "DDIM" },
     { value: "dpmpp_2m", label: "DPM++ 2M" },
     { value: "dpmpp_2m_karras", label: "DPM++ 2M Karras" },
+    { value: "flowmatch", label: "Match Euler" },
   ];
 
   const imageSizes = [

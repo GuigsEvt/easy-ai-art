@@ -43,6 +43,9 @@ SAMPLERS = {
     "dpmpp_2m": DPMSolverMultistepScheduler,
     "dpmpp_2m_karras": DPMSolverMultistepScheduler,
     "lcm": LCMScheduler,
+
+    # Qwen-only
+    "flowmatch": FlowMatchEulerDiscreteScheduler,
 }
 
 def detect_device():
@@ -90,8 +93,12 @@ def build_pipe(model_path: str, sampler: str, device: str, dtype):
             local_files_only=True,
             trust_remote_code=False,
         )
-        pipe.scheduler = FlowMatchEulerDiscreteScheduler.from_config(pipe.scheduler.config)
-        
+
+        if sampler in SAMPLERS:
+            pipe.scheduler = SAMPLERS[sampler].from_config(pipe.scheduler.config)
+        else:
+            pipe.scheduler = FlowMatchEulerDiscreteScheduler.from_config(pipe.scheduler.config)
+
         # Qwen uses different scheduler handling, skip custom scheduler for now
         print("Note: Custom scheduler selection not supported for Qwen models yet")
         

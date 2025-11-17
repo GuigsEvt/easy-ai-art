@@ -4,6 +4,7 @@ from typing import List, Optional, Dict, Any
 import os
 import json
 import logging
+from ..core.model_defaults import get_model_defaults, get_all_model_defaults, ModelDefaults, is_model_supported
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -16,6 +17,7 @@ class ModelInfo(BaseModel):
     pipeline_class: Optional[str] = Field(None, description="Pipeline class name")
     description: Optional[str] = Field(None, description="Model description")
     config: Optional[Dict[str, Any]] = Field(None, description="Model configuration")
+    defaults: Optional[ModelDefaults] = Field(None, description="Default parameters for optimal generation")
 
 class ModelsResponse(BaseModel):
     """Response model for available models"""
@@ -56,6 +58,10 @@ async def get_available_models():
                         path=model_path,
                         type="diffusers"
                     )
+                    
+                    # Add model defaults if available
+                    if is_model_supported(item):
+                        model_info.defaults = get_model_defaults(item)
                     
                     # Read model_index.json for additional info
                     try:
@@ -111,6 +117,10 @@ async def get_model_info(model_name: str):
             type="diffusers"
         )
         
+        # Add model defaults if available
+        if is_model_supported(model_name):
+            model_info.defaults = get_model_defaults(model_name)
+        
         # Try to read model_index.json
         model_index_path = os.path.join(model_path, "model_index.json")
         if os.path.exists(model_index_path):
@@ -141,3 +151,39 @@ async def get_model_info(model_name: str):
     except Exception as e:
         logger.error(f"Error getting model info for {model_name}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get model info: {str(e)}")
+
+
+@router.get("/models/defaults/all")
+async def get_all_model_defaults_endpoint():
+    """
+    Get default parameters for all supported models.
+    """
+    try:
+        defaults = get_all_model_defaults()
+        return {
+            "success": True,
+            "defaults": defaults,
+            "message": f"Retrieved defaults for {len(defaults)} models"
+        }
+    except Exception as e:
+        logger.error(f"Error getting model defaults: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get model defaults: {str(e)}")
+
+
+@router.get("/models/{model_name}/defaults", response_model=ModelDefaults)
+async def get_model_defaults_endpoint(model_name: str):
+    """
+    Get default parameters for a specific model.
+    """
+    try:
+        if not is_model_supported(model_name):
+            raise HTTPException(status_code=404, detail=f"No defaults available for model '{model_name}'")
+        
+        defaults = get_model_defaults(model_name)
+        return defaults
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting defaults for {model_name}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get defaults for {model_name}: {str(e)}")

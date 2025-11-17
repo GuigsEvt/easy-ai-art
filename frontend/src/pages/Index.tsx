@@ -10,7 +10,7 @@ import ParameterControls from "@/components/ParameterControls";
 import ImageDisplay from "@/components/ImageDisplay";
 import GenerationProgress from "@/components/GenerationProgress";
 import GuidancePopup from "@/components/GuidancePopup";
-import { imageAPI } from "@/lib/api";
+import { imageAPI, ModelDefaults } from "@/lib/api";
 import useStreamingGeneration from "@/hooks/use-streaming-generation";
 
 type Mode = "text-to-image" | "text-to-video" | "image-to-image";
@@ -18,7 +18,7 @@ type Mode = "text-to-image" | "text-to-video" | "image-to-image";
 const Index = () => {
   // State management
   const [selectedMode, setSelectedMode] = useState<Mode>("text-to-image");
-  const [selectedModel, setSelectedModel] = useState<string>("sdxl-turbo");
+  const [selectedModel, setSelectedModel] = useState<string>(""); // Start empty to auto-select first model
   const [prompt, setPrompt] = useState("");
   const [negativePrompt, setNegativePrompt] = useState("");
   const [guidanceScale, setGuidanceScale] = useState(1.0);
@@ -143,6 +143,15 @@ const Index = () => {
     toast.success(`Applied defaults for ${modelName.replace('-', ' ')}`);
   };
 
+  // Handle applying defaults when model is selected from ModelSelector
+  const handleModelDefaults = (defaults: ModelDefaults) => {
+    setGuidanceScale(defaults.guidance_scale);
+    setSteps(defaults.num_inference_steps);
+    setWidth(defaults.width);
+    setHeight(defaults.height);
+    setSampler(defaults.sampler);
+  };
+
   return (
     <div className="min-h-screen p-4 md:p-8">
       <div className="max-w-7xl mx-auto space-y-8">
@@ -171,7 +180,11 @@ const Index = () => {
 
         {/* Model Selector */}
         <div className="max-w-2xl mx-auto">
-          <ModelSelector selectedModel={selectedModel} onModelChange={setSelectedModel} />
+          <ModelSelector 
+            selectedModel={selectedModel} 
+            onModelChange={setSelectedModel} 
+            onApplyDefaults={handleModelDefaults}
+          />
         </div>
 
         {/* Main Content */}
