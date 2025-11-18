@@ -17,7 +17,8 @@ from diffusers import (
     DPMSolverMultistepScheduler,
     LCMScheduler,
     EulerDiscreteScheduler,
-    FlowMatchEulerDiscreteScheduler
+    FlowMatchEulerDiscreteScheduler,
+    FluxKontextPipeline
 )
 
 # Try to import QwenImagePipeline - it might not be available in all diffusers versions
@@ -143,30 +144,42 @@ def build_img2img_pipe(model_path: str, sampler: str, device: str, dtype):
     # offline / local only
     os.environ.setdefault("HF_HUB_OFFLINE", "1")
 
-    # Load img2img pipeline
-    pipe = AutoPipelineForImage2Image.from_pretrained(
-        str(mp),
-        torch_dtype=dtype,
-        use_safetensors=True,
-        local_files_only=True,
-        trust_remote_code=False,
-    )
-    
-    # Replace the scheduler (sampler)
-    if sampler in SAMPLERS:
-        # FlowMatch scheduler is not compatible with img2img, use a fallback
-        if sampler == "flowmatch":
-            print("Warning: FlowMatch scheduler is not compatible with img2img, using Euler instead")
-            pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config)
-        elif sampler == "dpmpp_2m_karras":
-            pipe.scheduler = DPMSolverMultistepScheduler.from_config(
-                pipe.scheduler.config,
-                use_karras_sigmas=True,
-                algorithm_type="dpmsolver++",
-                solver_order=2
-            )
-        else:
-            pipe.scheduler = SAMPLERS[sampler].from_config(pipe.scheduler.config)
+    # Check if this is a FLUX model by reading model_index.json
+    try:
+        with open(idx, 'r') as f:
+            model_config = json.load(f)
+        pipeline_class = model_config.get("_class_name", "")
+        is_flux_model = "FluxKontextPipeline" in pipeline_class or "FluxPipeline" in pipeline_class
+    except Exception as e:
+        is_flux_model = False
+
+    # Load appropriate pipeline
+    if is_flux_model:
+        pipe = FluxKontextPipeline.from_pretrained(str(mp), torch_dtype=torch.bfloat16)
+        # For FLUX models, DO NOT replace the scheduler - keep the original FlowMatchEulerDiscreteScheduler
+    else:
+        pipe = AutoPipelineForImage2Image.from_pretrained(
+            str(mp),
+            torch_dtype=dtype,
+            use_safetensors=True,
+            local_files_only=True,
+            trust_remote_code=False,
+        )
+        
+        # Replace the scheduler (sampler) only for non-FLUX models
+        if sampler in SAMPLERS:
+            if sampler == "flowmatch":
+                print("Warning: FlowMatch scheduler is not compatible with img2img, using Euler instead")
+                pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config)
+            elif sampler == "dpmpp_2m_karras":
+                pipe.scheduler = DPMSolverMultistepScheduler.from_config(
+                    pipe.scheduler.config,
+                    use_karras_sigmas=True,
+                    algorithm_type="dpmsolver++",
+                    solver_order=2
+                )
+            else:
+                pipe.scheduler = SAMPLERS[sampler].from_config(pipe.scheduler.config)
 
     pipe = pipe.to(device)
     pipe.enable_attention_slicing()

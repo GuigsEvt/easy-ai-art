@@ -44,6 +44,9 @@ class ImagePipeline:
 
     def _is_qwen_model(self, model_name: str) -> bool:
         return model_name.lower() in {"qwen-image", "qwen"}
+    
+    def _is_flux_model(self, model_name: str) -> bool:
+        return model_name.lower() in {"flux-kontext", "flux"}
 
     def _get_suitable_model_for_text2image(self, requested_model: str) -> str:
         """
@@ -359,23 +362,41 @@ class ImagePipeline:
 
         # Generation (runs in thread pool)
         def _generate_img2img():
+            # Check if this is a FLUX model
+            is_flux = self._is_flux_model(actual_model) or "flux" in actual_model.lower()
+            
             gen_args = {
                 "prompt": prompt,
                 "image": input_image,
-                "negative_prompt": negative_prompt or None,
                 "num_inference_steps": steps,
-                "strength": strength,
-                "guidance_scale": guidance,
                 "generator": generator,
             }
+            
+            # FLUX-SPECIFIC ARGS (no strength, no negative prompt, lower guidance)
+            if is_flux:
+                gen_args["guidance_scale"] = guidance
+                # NO 'strength' — FLUX handles blending implicitly
+                # NO 'negative_prompt' — FLUX doesn't use negative prompts in img2img
+            else:
+                gen_args["negative_prompt"] = negative_prompt or None
+                gen_args["strength"] = strength
+                gen_args["guidance_scale"] = guidance
 
-            # Progress callback
+            # Progress callback (FLUX uses modern API)
             if progress_callback:
                 wrapper = self._make_progress_wrapper(steps, progress_callback)
-                gen_args["callback"] = wrapper
-                gen_args["callback_steps"] = 1
+                if is_flux:
+                    gen_args["callback_on_step_end"] = wrapper  # ← FLUX: Modern callback
+                    # gen_args["callback_on_step_end_tensor_inputs"] = ["latents"]  # Optional for previews
+                else:
+                    gen_args["callback"] = wrapper  # Legacy for SDXL/etc.
+                    gen_args["callback_steps"] = 1
 
-            return pipe(**gen_args)
+            try:
+                result = pipe(**gen_args)
+                return result
+            except Exception as e:
+                raise
 
         result = await asyncio.get_event_loop().run_in_executor(None, _generate_img2img)
 
