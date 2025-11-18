@@ -52,6 +52,8 @@ def detect_model_type(model_path: str) -> ModelType:
                 return "Qwen-Image (Text-to-Image)"
             if "FluxPipeline" in cls:
                 return "FLUX.1 (Text-to-Image)"
+            if "FluxKontextPipeline" in cls:
+                return "FLUX.1 (Image-to-Image)"
             if any(k in cls for k in ["StableDiffusion", "PixArt", "SD3"]):
                 return "Text-to-Image"
                 
@@ -108,7 +110,10 @@ def is_image_to_image_model(model_path: str) -> bool:
     return model_type in [
         "Image-to-Image (Img2Img)",
         "Inpainting",
-        "Depth-to-Image"
+        "Depth-to-Image",
+        "Text-to-Image",  # Most text-to-image models can do img2img
+        "FLUX.1 (Text-to-Image)",  # FLUX models support img2img
+        "Text-to-Image (most likely)"
     ]
 
 
