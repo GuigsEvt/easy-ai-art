@@ -315,7 +315,6 @@ class ImagePipeline:
         self,
         prompt: str,
         image_data: str,
-        negative_prompt: Optional[str] = None,
         strength: float = 0.75,
         num_inference_steps: int = 20,
         guidance_scale: float = 7.5,
@@ -378,7 +377,7 @@ class ImagePipeline:
                 # NO 'strength' — FLUX handles blending implicitly
                 # NO 'negative_prompt' — FLUX doesn't use negative prompts in img2img
             else:
-                gen_args["negative_prompt"] = negative_prompt or None
+                # For non-FLUX models, include strength parameter
                 gen_args["strength"] = strength
                 gen_args["guidance_scale"] = guidance
 

@@ -16,7 +16,6 @@ export interface GenerationRequest {
 export interface ImageToImageRequest {
   prompt: string;
   image_data: string;
-  negative_prompt?: string;
   strength?: number;
   num_inference_steps?: number;
   guidance_scale?: number;

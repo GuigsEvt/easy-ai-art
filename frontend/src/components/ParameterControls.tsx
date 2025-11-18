@@ -11,6 +11,7 @@ interface ParameterControlsProps {
   sampler: string;
   strength?: number; // Optional for img2img
   mode?: "text-to-image" | "image-to-image"; // To show/hide relevant controls
+  selectedModel?: string; // To check if FLUX model
   onGuidanceScaleChange: (value: number) => void;
   onStepsChange: (value: number) => void;
   onWidthChange: (value: number) => void;
@@ -27,6 +28,7 @@ const ParameterControls = ({
   sampler,
   strength = 0.75,
   mode = "text-to-image",
+  selectedModel,
   onGuidanceScaleChange,
   onStepsChange,
   onWidthChange,
@@ -146,8 +148,8 @@ const ParameterControls = ({
         </div>
       </div>
 
-      {/* Strength parameter for image-to-image */}
-      {mode === "image-to-image" && onStrengthChange && (
+      {/* Strength parameter for image-to-image (not shown for FLUX models) */}
+      {mode === "image-to-image" && onStrengthChange && !selectedModel?.toLowerCase().includes("flux") && (
         <div className="space-y-2">
           <div className="flex justify-between items-center">
             <Label htmlFor="strength">Strength</Label>

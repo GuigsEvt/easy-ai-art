@@ -204,7 +204,6 @@ async def generate_img2img_with_progress(request: ImageToImageRequest) -> AsyncG
                     pipeline.generate_img2img(
                         prompt=request.prompt,
                         image_data=request.image_data,
-                        negative_prompt=request.negative_prompt,
                         strength=request.strength,
                         num_inference_steps=request.num_inference_steps,
                         guidance_scale=request.guidance_scale,
@@ -304,7 +303,6 @@ async def generate_img2img_stream(request: ImageToImageRequest):
         print("🎨 NEW IMG2IMG GENERATION REQUEST (STREAMING)")
         print("=" * 60)
         print(f"📝 Prompt: {request.prompt[:100]}{'...' if len(request.prompt) > 100 else ''}")
-        print(f"❌ Negative Prompt: {request.negative_prompt or 'None'}")
         print(f"💪 Strength: {request.strength}")
         print(f"🔢 Inference Steps: {request.num_inference_steps}")
         print(f"🎯 Guidance Scale: {request.guidance_scale}")

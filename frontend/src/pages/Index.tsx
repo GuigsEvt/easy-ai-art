@@ -122,7 +122,6 @@ const Index = () => {
       const img2imgParams = {
         prompt: prompt.trim(),
         image_data: inputImage,
-        negative_prompt: negativePrompt.trim() || undefined,
         strength: strength,
         num_inference_steps: steps,
         guidance_scale: guidanceScale,
@@ -278,22 +277,25 @@ const Index = () => {
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Prompt</label>
                   <Textarea
-                    placeholder="Describe the image you want to generate..."
+                    placeholder={selectedMode === "image-to-image" ? "Describe how you want to update or modify the image..." : "Describe the image you want to generate..."}
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
                     className="min-h-[120px] bg-secondary/50 border-border resize-none"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Negative Prompt</label>
-                  <Textarea
-                    placeholder="Describe what you don't want (optional)..."
-                    value={negativePrompt}
-                    onChange={(e) => setNegativePrompt(e.target.value)}
-                    className="min-h-[80px] bg-secondary/50 border-border resize-none"
-                  />
-                </div>
+                {/* Only show negative prompt for text-to-image mode */}
+                {selectedMode === "text-to-image" && (
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Negative Prompt</label>
+                    <Textarea
+                      placeholder="Describe what you don't want (optional)..."
+                      value={negativePrompt}
+                      onChange={(e) => setNegativePrompt(e.target.value)}
+                      className="min-h-[80px] bg-secondary/50 border-border resize-none"
+                    />
+                  </div>
+                )}
 
                 {/* Image Upload for img2img mode */}
                 {selectedMode === "image-to-image" && (
@@ -315,6 +317,7 @@ const Index = () => {
                   sampler={sampler}
                   strength={strength}
                   mode={selectedMode === "image-to-image" ? "image-to-image" : "text-to-image"}
+                  selectedModel={selectedModel}
                   onGuidanceScaleChange={setGuidanceScale}
                   onStepsChange={setSteps}
                   onWidthChange={setWidth}
