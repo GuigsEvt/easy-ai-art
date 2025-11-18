@@ -41,6 +41,14 @@ MODEL_DEFAULTS: Dict[str, ModelDefaults] = {
         height=768,
         sampler="flowmatch",
         explanation="Qwen-Image is a versatile model that balances quality and speed. Works well with moderate guidance scale and Match Euler sampler."
+    ),
+    "FLUX": ModelDefaults(
+        guidance_scale=2.0,
+        num_inference_steps=12,
+        width=1024,
+        height=1024,
+        sampler="flowmatch",
+        explanation="FLUX is a high-quality diffusion model optimized for fast generation. Uses low CFG (2.0) and moderate steps (12) for best results."
     )
 }
 
@@ -60,6 +68,10 @@ def get_model_defaults(model_name: str) -> ModelDefaults:
     """
     if model_name in MODEL_DEFAULTS:
         return MODEL_DEFAULTS[model_name]
+    
+    # Check if it's a FLUX model variant
+    if "flux" in model_name.lower():
+        return MODEL_DEFAULTS["FLUX"]
     
     # Fallback to sdxl-turbo defaults for unknown models
     return MODEL_DEFAULTS["sdxl-turbo"]
