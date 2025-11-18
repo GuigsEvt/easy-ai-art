@@ -154,7 +154,11 @@ def build_img2img_pipe(model_path: str, sampler: str, device: str, dtype):
     
     # Replace the scheduler (sampler)
     if sampler in SAMPLERS:
-        if sampler == "dpmpp_2m_karras":
+        # FlowMatch scheduler is not compatible with img2img, use a fallback
+        if sampler == "flowmatch":
+            print("Warning: FlowMatch scheduler is not compatible with img2img, using Euler instead")
+            pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config)
+        elif sampler == "dpmpp_2m_karras":
             pipe.scheduler = DPMSolverMultistepScheduler.from_config(
                 pipe.scheduler.config,
                 use_karras_sigmas=True,

@@ -86,16 +86,28 @@ class ImagePipeline:
             return suitable_model
         else:
             # For img2img, we can often use text-to-image models in img2img mode
-            # Check if the requested model is at least a text-to-image model
+            # BUT exclude Qwen models as they use incompatible schedulers
             if os.path.exists(model_path) and is_text_to_image_model(model_path):
-                logger.info(f"Using text-to-image model '{requested_model}' for image-to-image generation")
-                return requested_model
+                # Check if it's a Qwen model by checking the model type
+                model_type = detect_model_type(model_path)
+                if "Qwen" in model_type:
+                    logger.warning(f"Qwen model '{requested_model}' not compatible with img2img, looking for alternatives")
+                else:
+                    logger.info(f"Using text-to-image model '{requested_model}' for image-to-image generation")
+                    return requested_model
             
-            # Last resort: try to find any text-to-image model
+            # Last resort: try to find any text-to-image model (but avoid Qwen models)
             text2img_model = get_recommended_model_for_task(str(self.models_dir), "text-to-image")
             if text2img_model:
-                logger.warning(f"No dedicated img2img model found, using text-to-image model '{text2img_model}' instead")
-                return text2img_model
+                # Check if it's a Qwen model which is not compatible with img2img
+                text2img_path = f"models/{text2img_model}"
+                if os.path.exists(text2img_path):
+                    model_type = detect_model_type(text2img_path)
+                    if "Qwen" not in model_type:
+                        logger.warning(f"No dedicated img2img model found, using text-to-image model '{text2img_model}' instead")
+                        return text2img_model
+                    else:
+                        logger.warning(f"Found Qwen model '{text2img_model}' but it's not compatible with img2img")
             
             # Fallback to original model (might fail, but let it fail gracefully)
             logger.error(f"No suitable model found for image-to-image, attempting with '{requested_model}'")
