@@ -15,6 +15,7 @@ ModelType = Literal[
     "Depth-to-Image",
     "Qwen-Image (Text-to-Image)",
     "FLUX.1 (Text-to-Image)",
+    "FLUX.1 (Image-to-Image)",
     "ControlNet (auxiliary)",
     "Text-to-Image (most likely)"
 ]
@@ -111,6 +112,7 @@ def is_image_to_image_model(model_path: str) -> bool:
         "Image-to-Image (Img2Img)",
         "Inpainting",
         "Depth-to-Image",
+        "FLUX.1 (Image-to-Image)",  # FLUX Kontext models support img2img
         "Text-to-Image",  # Most text-to-image models can do img2img
         "FLUX.1 (Text-to-Image)",  # FLUX models support img2img
         "Text-to-Image (most likely)"
